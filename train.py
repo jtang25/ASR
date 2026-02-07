@@ -13,9 +13,9 @@ from torch.amp import GradScaler, autocast
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data.distributed import DistributedSampler
 
-from decoding import beam_search_decode
+from decoding import beam_search_decode, build_lm_decoder, lm_beam_search_decode
 from model import ConformerASR
-from preprocessing import BLANK_IDX, VOCAB_SIZE, get_dataloader, tokens_to_text
+from preprocessing import BLANK_IDX, VOCAB, VOCAB_SIZE, get_dataloader, tokens_to_text
 
 
 def parse_args() -> argparse.Namespace:
@@ -51,6 +51,29 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=0,
         help="Per-frame top-k pruning for beam search (0 disables).",
+    )
+    parser.add_argument(
+        "--eval-lm-path",
+        default=None,
+        help="Optional KenLM model (.arpa/.bin) path for validation-time LM decoding.",
+    )
+    parser.add_argument(
+        "--eval-lm-alpha",
+        type=float,
+        default=0.5,
+        help="LM weight alpha used when --eval-lm-path is set.",
+    )
+    parser.add_argument(
+        "--eval-lm-beta",
+        type=float,
+        default=1.0,
+        help="Word insertion bonus beta used when --eval-lm-path is set.",
+    )
+    parser.add_argument(
+        "--eval-lm-beam-width",
+        type=int,
+        default=128,
+        help="Beam width for LM decoder when --eval-lm-path is set.",
     )
 
     parser.add_argument("--ckpt-dir", default="./checkpoints")
@@ -158,6 +181,8 @@ def _validate_args(args: argparse.Namespace) -> None:
         raise ValueError("--beam-size must be >= 1")
     if args.beam_token_prune < 0:
         raise ValueError("--beam-token-prune must be >= 0")
+    if args.eval_lm_beam_width < 1:
+        raise ValueError("--eval-lm-beam-width must be >= 1")
 
 
 def _set_seed(seed: int) -> None:
@@ -193,20 +218,31 @@ def compute_wer(
     target_lengths: torch.Tensor,
     beam_size: int = 10,
     token_prune: int | None = None,
+    lm_decoder=None,
+    lm_beam_width: int = 100,
 ) -> float:
-    decoded = beam_search_decode(
-        log_probs,
-        output_lengths,
-        beam_size=beam_size,
-        blank_idx=BLANK_IDX,
-        token_prune=token_prune,
-    )
+    if lm_decoder is not None:
+        hyp_texts = lm_beam_search_decode(
+            log_probs,
+            output_lengths,
+            decoder=lm_decoder,
+            beam_width=lm_beam_width,
+        )
+    else:
+        decoded = beam_search_decode(
+            log_probs,
+            output_lengths,
+            beam_size=beam_size,
+            blank_idx=BLANK_IDX,
+            token_prune=token_prune,
+        )
+        hyp_texts = [tokens_to_text(tokens) for tokens in decoded]
     total_words = 0
     total_errors = 0
 
-    for i in range(len(decoded)):
-        hyp_text = tokens_to_text(decoded[i])
-        ref_tokens = targets[i, : target_lengths[i]].tolist()
+    for i, hyp_text in enumerate(hyp_texts):
+        ref_len = int(target_lengths[i].item())
+        ref_tokens = targets[i, :ref_len].tolist()
         ref_text = tokens_to_text(ref_tokens)
 
         ref_words = ref_text.split()
@@ -409,7 +445,15 @@ def train_one_epoch(
 
 
 @torch.no_grad()
-def evaluate(model, loader, device, beam_size: int = 10, token_prune: int | None = None):
+def evaluate(
+    model,
+    loader,
+    device,
+    beam_size: int = 10,
+    token_prune: int | None = None,
+    lm_decoder=None,
+    lm_beam_width: int = 100,
+):
     model.eval()
     ctc_loss_fn = nn.CTCLoss(blank=BLANK_IDX, reduction="mean", zero_infinity=True)
 
@@ -435,6 +479,8 @@ def evaluate(model, loader, device, beam_size: int = 10, token_prune: int | None
             token_lengths,
             beam_size=beam_size,
             token_prune=token_prune,
+            lm_decoder=lm_decoder,
+            lm_beam_width=lm_beam_width,
         )
 
         total_loss += loss.item()
@@ -515,6 +561,21 @@ def main() -> None:
         else:
             train_loaders, train_samplers = _build_train_loaders(download_flag=args.download)
             val_loader = _build_val_loader(download_flag=args.download)
+
+        eval_lm_decoder = None
+        if is_main_process and args.eval_lm_path:
+            eval_lm_decoder = build_lm_decoder(
+                vocab=VOCAB,
+                lm_path=args.eval_lm_path,
+                blank_idx=BLANK_IDX,
+                alpha=args.eval_lm_alpha,
+                beta=args.eval_lm_beta,
+            )
+            print(
+                "Validation LM decoding enabled: "
+                f"path={args.eval_lm_path} alpha={args.eval_lm_alpha} "
+                f"beta={args.eval_lm_beta} beam_width={args.eval_lm_beam_width}"
+            )
 
         train_len = combined_len(train_loaders)
 
@@ -637,6 +698,8 @@ def main() -> None:
                     device,
                     beam_size=args.beam_size,
                     token_prune=token_prune,
+                    lm_decoder=eval_lm_decoder,
+                    lm_beam_width=args.eval_lm_beam_width,
                 )
             else:
                 val_loss, val_wer = 0.0, 0.0
@@ -704,6 +767,10 @@ def main() -> None:
                         "num_workers": args.num_workers,
                         "beam_size": args.beam_size,
                         "beam_token_prune": args.beam_token_prune,
+                        "eval_lm_path": args.eval_lm_path,
+                        "eval_lm_alpha": args.eval_lm_alpha,
+                        "eval_lm_beta": args.eval_lm_beta,
+                        "eval_lm_beam_width": args.eval_lm_beam_width,
                         "world_size": world_size,
                     },
                 }
