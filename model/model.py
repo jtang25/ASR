@@ -4,7 +4,6 @@ import torch.nn.functional as F
 
 from .conformer import ConformerBlock
 
-
 class ConvSubsampling(nn.Module):
     """
     Two Conv2d layers with stride 2 each -> 4x time reduction.

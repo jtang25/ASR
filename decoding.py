@@ -1,0 +1,129 @@
+import math
+from typing import Dict, List, Optional, Tuple
+
+import torch
+
+
+NEG_INF = float("-inf")
+
+
+def _log_add(a: float, b: float) -> float:
+    """Numerically stable log(exp(a) + exp(b))."""
+    if a == NEG_INF:
+        return b
+    if b == NEG_INF:
+        return a
+    if a > b:
+        return a + math.log1p(math.exp(b - a))
+    return b + math.log1p(math.exp(a - b))
+
+
+def ctc_prefix_beam_search(
+    log_probs: torch.Tensor,
+    beam_size: int = 10,
+    blank_idx: int = 0,
+    token_prune: Optional[int] = None,
+) -> List[int]:
+    """
+    CTC prefix beam search on a single sequence.
+
+    Args:
+        log_probs: (T, V) log probabilities
+        beam_size: number of active beams to keep
+        blank_idx: CTC blank token index
+        token_prune: optional per-frame top-k token pruning
+    Returns:
+        Decoded token sequence
+    """
+    if log_probs.numel() == 0:
+        return []
+
+    log_probs = log_probs.detach().cpu()
+    _, vocab_size = log_probs.shape
+    beams: Dict[Tuple[int, ...], Tuple[float, float]] = {(): (0.0, NEG_INF)}
+
+    for t in range(log_probs.size(0)):
+        frame = log_probs[t]
+        if token_prune is not None and 0 < token_prune < vocab_size:
+            top_vals, top_idx = torch.topk(frame, k=token_prune)
+            token_items = list(zip(top_idx.tolist(), top_vals.tolist()))
+        else:
+            token_items = list(enumerate(frame.tolist()))
+
+        next_beams: Dict[Tuple[int, ...], Tuple[float, float]] = {}
+
+        for prefix, (p_blank, p_non_blank) in beams.items():
+            prefix_total = _log_add(p_blank, p_non_blank)
+            last_token = prefix[-1] if prefix else None
+
+            for token, token_logp in token_items:
+                if token == blank_idx:
+                    n_blank, n_non_blank = next_beams.get(prefix, (NEG_INF, NEG_INF))
+                    n_blank = _log_add(n_blank, prefix_total + token_logp)
+                    next_beams[prefix] = (n_blank, n_non_blank)
+                    continue
+
+                if token == last_token:
+                    # Repeating token can either stay on same prefix (from non-blank)
+                    # or extend from blank.
+                    n_blank, n_non_blank = next_beams.get(prefix, (NEG_INF, NEG_INF))
+                    n_non_blank = _log_add(n_non_blank, p_non_blank + token_logp)
+                    next_beams[prefix] = (n_blank, n_non_blank)
+
+                    ext_prefix = prefix + (token,)
+                    e_blank, e_non_blank = next_beams.get(ext_prefix, (NEG_INF, NEG_INF))
+                    e_non_blank = _log_add(e_non_blank, p_blank + token_logp)
+                    next_beams[ext_prefix] = (e_blank, e_non_blank)
+                else:
+                    ext_prefix = prefix + (token,)
+                    e_blank, e_non_blank = next_beams.get(ext_prefix, (NEG_INF, NEG_INF))
+                    e_non_blank = _log_add(e_non_blank, prefix_total + token_logp)
+                    next_beams[ext_prefix] = (e_blank, e_non_blank)
+
+        beams = dict(
+            sorted(
+                next_beams.items(),
+                key=lambda item: _log_add(item[1][0], item[1][1]),
+                reverse=True,
+            )[:beam_size]
+        )
+
+    best_prefix, _ = max(
+        beams.items(),
+        key=lambda item: _log_add(item[1][0], item[1][1]),
+    )
+    return list(best_prefix)
+
+
+def beam_search_decode(
+    log_probs: torch.Tensor,
+    lengths: torch.Tensor,
+    beam_size: int = 10,
+    blank_idx: int = 0,
+    token_prune: Optional[int] = None,
+) -> List[List[int]]:
+    """
+    Batch CTC prefix beam search.
+
+    Args:
+        log_probs: (B, T, V)
+        lengths: (B,)
+    Returns:
+        List of token lists
+    """
+    decoded: List[List[int]] = []
+    for i in range(log_probs.size(0)):
+        length = int(lengths[i].item())
+        if length <= 0:
+            decoded.append([])
+            continue
+        seq = log_probs[i, :length]
+        decoded.append(
+            ctc_prefix_beam_search(
+                seq,
+                beam_size=beam_size,
+                blank_idx=blank_idx,
+                token_prune=token_prune,
+            )
+        )
+    return decoded
