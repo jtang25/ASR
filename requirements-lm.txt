@@ -1,0 +1,2 @@
+pyctcdecode>=0.5.0
+kenlm>=0.3.0

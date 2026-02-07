@@ -1,7 +1,13 @@
 import math
-from typing import Dict, List, Optional, Tuple
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import torch
+
+try:
+    from pyctcdecode import build_ctcdecoder
+except ImportError:  # pragma: no cover - optional dependency
+    build_ctcdecoder = None
 
 
 NEG_INF = float("-inf")
@@ -127,3 +133,58 @@ def beam_search_decode(
             )
         )
     return decoded
+
+
+def _labels_from_vocab(vocab: Sequence[str], blank_idx: int) -> List[str]:
+    if blank_idx < 0 or blank_idx >= len(vocab):
+        raise ValueError(
+            f"blank_idx={blank_idx} is out of range for vocab size {len(vocab)}"
+        )
+    return ["" if idx == blank_idx else token for idx, token in enumerate(vocab)]
+
+
+def build_lm_decoder(
+    vocab: Sequence[str],
+    lm_path: str,
+    blank_idx: int = 0,
+    alpha: float = 0.5,
+    beta: float = 1.0,
+) -> Any:
+    if not lm_path:
+        raise ValueError("lm_path must be a non-empty path to a KenLM model file.")
+    if build_ctcdecoder is None:
+        raise RuntimeError(
+            "pyctcdecode is not installed. Install with: pip install pyctcdecode kenlm"
+        )
+
+    model_path = Path(lm_path)
+    if not model_path.exists():
+        raise FileNotFoundError(f"Language model file not found: {lm_path}")
+
+    labels = _labels_from_vocab(vocab, blank_idx)
+    return build_ctcdecoder(
+        labels=labels,
+        kenlm_model_path=str(model_path),
+        alpha=alpha,
+        beta=beta,
+    )
+
+
+def lm_beam_search_decode(
+    log_probs: torch.Tensor,
+    lengths: torch.Tensor,
+    decoder: Any,
+    beam_width: int = 100,
+) -> List[str]:
+    if beam_width < 1:
+        raise ValueError("beam_width must be >= 1")
+
+    decoded_text: List[str] = []
+    for i in range(log_probs.size(0)):
+        length = int(lengths[i].item())
+        if length <= 0:
+            decoded_text.append("")
+            continue
+        seq = log_probs[i, :length].detach().float().cpu().numpy()
+        decoded_text.append(decoder.decode(seq, beam_width=beam_width))
+    return decoded_text

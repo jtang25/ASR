@@ -4,9 +4,9 @@ from pathlib import Path
 import torch
 import torchaudio
 
-from decoding import beam_search_decode
+from decoding import beam_search_decode, build_lm_decoder, lm_beam_search_decode
 from model import ConformerASR
-from preprocessing import BLANK_IDX, VOCAB_SIZE, LogMelSpectrogram, tokens_to_text
+from preprocessing import BLANK_IDX, VOCAB, VOCAB_SIZE, LogMelSpectrogram, tokens_to_text
 
 
 LOSSLESS_EXTENSIONS = {".wav", ".wave", ".flac"}
@@ -37,6 +37,29 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=0,
         help="Per-frame top-k token pruning (0 disables).",
+    )
+    parser.add_argument(
+        "--lm-path",
+        default=None,
+        help="Optional KenLM model (.arpa/.bin) path for LM-assisted decoding.",
+    )
+    parser.add_argument(
+        "--lm-alpha",
+        type=float,
+        default=0.5,
+        help="LM weight alpha (used only when --lm-path is set).",
+    )
+    parser.add_argument(
+        "--lm-beta",
+        type=float,
+        default=1.0,
+        help="Word insertion bonus beta (used only when --lm-path is set).",
+    )
+    parser.add_argument(
+        "--lm-beam-width",
+        type=int,
+        default=128,
+        help="Beam width for LM decoder (used only when --lm-path is set).",
     )
     parser.add_argument(
         "--max-seq-len",
@@ -80,6 +103,8 @@ def _validate_args(args: argparse.Namespace) -> None:
         raise ValueError("--beam-size must be >= 1")
     if args.beam_token_prune < 0:
         raise ValueError("--beam-token-prune must be >= 0")
+    if args.lm_beam_width < 1:
+        raise ValueError("--lm-beam-width must be >= 1")
     if args.max_seq_len < 0:
         raise ValueError("--max-seq-len must be >= 0")
     if args.chunk_overlap_frames < 0:
@@ -246,17 +271,39 @@ def main() -> None:
     )
 
     token_prune = args.beam_token_prune if args.beam_token_prune > 0 else None
-    decoded = beam_search_decode(
-        log_probs=log_probs,
-        lengths=output_lengths,
-        beam_size=args.beam_size,
-        blank_idx=BLANK_IDX,
-        token_prune=token_prune,
-    )
-    text = tokens_to_text(decoded[0])
+    if args.lm_path:
+        lm_decoder = build_lm_decoder(
+            vocab=VOCAB,
+            lm_path=args.lm_path,
+            blank_idx=BLANK_IDX,
+            alpha=args.lm_alpha,
+            beta=args.lm_beta,
+        )
+        decoded_text = lm_beam_search_decode(
+            log_probs=log_probs,
+            lengths=output_lengths,
+            decoder=lm_decoder,
+            beam_width=args.lm_beam_width,
+        )
+        text = decoded_text[0]
+        decode_mode = (
+            f"ctc+lm (beam_width={args.lm_beam_width}, "
+            f"alpha={args.lm_alpha}, beta={args.lm_beta})"
+        )
+    else:
+        decoded = beam_search_decode(
+            log_probs=log_probs,
+            lengths=output_lengths,
+            beam_size=args.beam_size,
+            blank_idx=BLANK_IDX,
+            token_prune=token_prune,
+        )
+        text = tokens_to_text(decoded[0])
+        decode_mode = f"ctc-beam (beam_size={args.beam_size})"
 
     print(f"Device: {device}")
     print(f"Audio: {args.audio}")
+    print(f"Decode mode: {decode_mode}")
     print(f"Mel frames: {mel.size(0)}")
     print(f"Chunk frames (max): {chunk_frames}")
     print(f"Output frames: {int(output_lengths[0].item())}")
