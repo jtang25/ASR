@@ -1,12 +1,17 @@
 import argparse
+import csv
+from contextlib import nullcontext
 import math
 import os
 import random
 import time
 
 import torch
+import torch.distributed as dist
 import torch.nn as nn
 from torch.amp import GradScaler, autocast
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.utils.data.distributed import DistributedSampler
 
 from decoding import beam_search_decode
 from model import ConformerASR
@@ -31,16 +36,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--n-mels", type=int, default=80)
     parser.add_argument("--conv-kernel", type=int, default=31)
 
-    parser.add_argument("--epochs", type=int, default=100)
-    parser.add_argument("--batch-size", type=int, default=32)
+    parser.add_argument("--epochs", type=int, default=50)
+    parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--accum-steps", type=int, default=2)
-    parser.add_argument("--lr", type=float, default=1e-4)
-    parser.add_argument("--warmup-steps", type=int, default=2000)
+    parser.add_argument("--lr", type=float, default=3e-4)
+    parser.add_argument("--warmup-steps", type=int, default=400)
     parser.add_argument("--weight-decay", type=float, default=1e-6)
     parser.add_argument("--grad-clip", type=float, default=5.0)
-    parser.add_argument("--num-workers", type=int, default=4)
+    parser.add_argument("--num-workers", type=int, default=8)
 
-    parser.add_argument("--beam-size", type=int, default=10)
+    parser.add_argument("--beam-size", type=int, default=5)
     parser.add_argument(
         "--beam-token-prune",
         type=int,
@@ -50,9 +55,26 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument("--ckpt-dir", default="./checkpoints")
     parser.add_argument(
+        "--log-csv",
+        default=None,
+        help="CSV path for training logs (default: <ckpt-dir>/training_log.csv).",
+    )
+    parser.add_argument(
         "--resume-path",
         default=None,
         help="Optional checkpoint path to resume from.",
+    )
+    parser.add_argument(
+        "--auto-resume",
+        action="store_true",
+        default=True,
+        help="If --resume-path is not set, auto-resume from <ckpt-dir>/last.pt when available.",
+    )
+    parser.add_argument(
+        "--no-auto-resume",
+        action="store_false",
+        dest="auto_resume",
+        help="Disable automatic resume-from-last checkpoint behavior.",
     )
 
     parser.add_argument("--seed", type=int, default=1337)
@@ -71,6 +93,46 @@ def _resolve_device(device_arg: str) -> torch.device:
             raise RuntimeError("CUDA requested but not available.")
         return torch.device("cuda")
     return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+def _init_distributed(device_arg: str) -> tuple[bool, int, int, int, torch.device]:
+    world_size = int(os.environ.get("WORLD_SIZE", "1"))
+    rank = int(os.environ.get("RANK", "0"))
+    local_rank = int(os.environ.get("LOCAL_RANK", "0"))
+
+    is_distributed = world_size > 1
+    if not is_distributed:
+        return False, rank, local_rank, world_size, _resolve_device(device_arg)
+
+    use_cuda = device_arg == "cuda" or (device_arg == "auto" and torch.cuda.is_available())
+    if use_cuda and not torch.cuda.is_available():
+        raise RuntimeError("Distributed CUDA training requested but CUDA is not available.")
+
+    if use_cuda:
+        torch.cuda.set_device(local_rank)
+        device = torch.device("cuda", local_rank)
+        backend = "nccl"
+    else:
+        device = torch.device("cpu")
+        backend = "gloo"
+
+    if not dist.is_initialized():
+        dist.init_process_group(backend=backend, init_method="env://")
+
+    return True, rank, local_rank, world_size, device
+
+
+def _cleanup_distributed(is_distributed: bool) -> None:
+    if is_distributed and dist.is_initialized():
+        dist.destroy_process_group()
+
+
+def _reduce_sum(value: float, device: torch.device, is_distributed: bool) -> float:
+    if not is_distributed:
+        return value
+    t = torch.tensor(value, device=device, dtype=torch.float64)
+    dist.all_reduce(t, op=dist.ReduceOp.SUM)
+    return float(t.item())
 
 
 def _validate_args(args: argparse.Namespace) -> None:
@@ -172,21 +234,37 @@ class WarmupCosineScheduler:
 
     def step(self):
         self.step_count += 1
-        if self.step_count <= self.warmup_steps:
-            lr = self.peak_lr * self.step_count / max(1, self.warmup_steps)
-        else:
-            progress = (self.step_count - self.warmup_steps) / max(
-                1, self.total_steps - self.warmup_steps
-            )
-            lr = self.min_lr + 0.5 * (self.peak_lr - self.min_lr) * (
-                1 + math.cos(math.pi * progress)
-            )
+        lr = self._compute_lr(self.step_count)
         for pg in self.optimizer.param_groups:
             pg["lr"] = lr
         return lr
 
     def get_lr(self):
         return self.optimizer.param_groups[0]["lr"]
+
+    def _compute_lr(self, step_count: int) -> float:
+        if step_count <= self.warmup_steps:
+            return self.peak_lr * step_count / max(1, self.warmup_steps)
+        progress = (step_count - self.warmup_steps) / max(
+            1, self.total_steps - self.warmup_steps
+        )
+        return self.min_lr + 0.5 * (self.peak_lr - self.min_lr) * (
+            1 + math.cos(math.pi * progress)
+        )
+
+    def state_dict(self) -> dict:
+        return {
+            "step_count": self.step_count,
+            "warmup_steps": self.warmup_steps,
+            "total_steps": self.total_steps,
+            "peak_lr": self.peak_lr,
+            "min_lr": self.min_lr,
+        }
+
+    def load_state_dict(self, state: dict) -> None:
+        self.step_count = int(state.get("step_count", 0))
+        for pg in self.optimizer.param_groups:
+            pg["lr"] = self._compute_lr(self.step_count)
 
 
 # ---------------------------------------------------------------------------
@@ -212,17 +290,61 @@ def combined_len(loaders):
     return sum(len(l) for l in loaders)
 
 
+CSV_FIELDS = [
+    "record_type",
+    "epoch",
+    "step",
+    "global_step",
+    "optimizer_step",
+    "train_step_loss",
+    "train_running_loss",
+    "train_epoch_loss",
+    "val_loss",
+    "val_wer",
+    "lr",
+    "elapsed_sec",
+    "best_wer",
+]
+
+
+def append_csv_rows(csv_path: str, rows: list[dict]) -> None:
+    if not rows:
+        return
+    os.makedirs(os.path.dirname(csv_path) or ".", exist_ok=True)
+    file_exists = os.path.exists(csv_path)
+    with open(csv_path, "a", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=CSV_FIELDS)
+        if (not file_exists) or os.path.getsize(csv_path) == 0:
+            writer.writeheader()
+        writer.writerows(rows)
+
+
 # ---------------------------------------------------------------------------
 # Training
 # ---------------------------------------------------------------------------
 
 
-def train_one_epoch(model, loader, loader_len, optimizer, scheduler, scaler, device, grad_clip, accum_steps):
+def train_one_epoch(
+    model,
+    loader,
+    loader_len,
+    optimizer,
+    scheduler,
+    scaler,
+    device,
+    grad_clip,
+    accum_steps,
+    epoch_num: int,
+    global_step_offset: int,
+    is_distributed: bool = False,
+    is_main_process: bool = True,
+):
     model.train()
     ctc_loss_fn = nn.CTCLoss(blank=BLANK_IDX, reduction="mean", zero_infinity=True)
 
     total_loss = 0.0
     num_batches = 0
+    step_rows: list[dict] = []
     optimizer.zero_grad(set_to_none=True)
 
     for step, (mel, tokens, mel_lengths, token_lengths) in enumerate(loader):
@@ -230,17 +352,21 @@ def train_one_epoch(model, loader, loader_len, optimizer, scheduler, scaler, dev
         tokens = tokens.to(device)
         mel_lengths = mel_lengths.to(device)
         token_lengths = token_lengths.to(device)
+        is_last_batch = (step + 1) == loader_len
+        should_step = ((step + 1) % accum_steps == 0) or is_last_batch
 
-        with autocast(device_type=device.type, enabled=(device.type == "cuda")):
-            log_probs, output_lengths = model(mel, mel_lengths)
-            log_probs_ctc = log_probs.transpose(0, 1)
-            output_lengths = output_lengths.clamp(min=1)
-            loss = ctc_loss_fn(log_probs_ctc, tokens, output_lengths, token_lengths)
-            loss = loss / accum_steps
+        sync_ctx = nullcontext()
+        if is_distributed and isinstance(model, DDP) and not should_step:
+            sync_ctx = model.no_sync()
+        with sync_ctx:
+            with autocast(device_type=device.type, enabled=(device.type == "cuda")):
+                log_probs, output_lengths = model(mel, mel_lengths)
+                log_probs_ctc = log_probs.transpose(0, 1)
+                output_lengths = output_lengths.clamp(min=1)
+                loss = ctc_loss_fn(log_probs_ctc, tokens, output_lengths, token_lengths)
+                loss = loss / accum_steps
+            scaler.scale(loss).backward()
 
-        scaler.scale(loss).backward()
-
-        should_step = (step + 1) % accum_steps == 0
         if should_step:
             scaler.unscale_(optimizer)
             torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
@@ -249,23 +375,37 @@ def train_one_epoch(model, loader, loader_len, optimizer, scheduler, scaler, dev
             optimizer.zero_grad(set_to_none=True)
             scheduler.step()
 
-        total_loss += loss.item() * accum_steps
+        raw_loss = loss.item() * accum_steps
+        total_loss += raw_loss
         num_batches += 1
+        running_loss = total_loss / num_batches
+        lr_now = scheduler.get_lr()
+        global_step = global_step_offset + step + 1
+        if is_main_process:
+            step_rows.append(
+                {
+                    "record_type": "train_step",
+                    "epoch": epoch_num,
+                    "step": step + 1,
+                    "global_step": global_step,
+                    "optimizer_step": scheduler.step_count,
+                    "train_step_loss": raw_loss,
+                    "train_running_loss": running_loss,
+                    "train_epoch_loss": "",
+                    "val_loss": "",
+                    "val_wer": "",
+                    "lr": lr_now,
+                    "elapsed_sec": "",
+                    "best_wer": "",
+                }
+            )
 
-        if (step + 1) % 100 == 0:
-            avg = total_loss / num_batches
-            lr_now = scheduler.get_lr()
-            print(f"  step {step+1:5d} | loss {avg:.4f} | lr {lr_now:.2e}")
+        if is_main_process and (step + 1) % 100 == 0:
+            print(f"  step {step+1:5d} | loss {running_loss:.4f} | lr {lr_now:.2e}")
 
-    if (loader_len % accum_steps) != 0:
-        scaler.unscale_(optimizer)
-        torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
-        scaler.step(optimizer)
-        scaler.update()
-        optimizer.zero_grad(set_to_none=True)
-        scheduler.step()
-
-    return total_loss / max(num_batches, 1)
+    total_loss = _reduce_sum(total_loss, device=device, is_distributed=is_distributed)
+    num_batches_global = _reduce_sum(float(num_batches), device=device, is_distributed=is_distributed)
+    return total_loss / max(num_batches_global, 1.0), step_rows, num_batches
 
 
 @torch.no_grad()
@@ -307,155 +447,277 @@ def evaluate(model, loader, device, beam_size: int = 10, token_prune: int | None
 def main() -> None:
     args = parse_args()
     _validate_args(args)
-    _set_seed(args.seed)
+    is_distributed, rank, local_rank, world_size, device = _init_distributed(args.device)
+    is_main_process = rank == 0
+    _set_seed(args.seed + rank)
 
-    os.makedirs(args.ckpt_dir, exist_ok=True)
-    device = _resolve_device(args.device)
-    print(f"Device: {device}")
+    try:
+        os.makedirs(args.ckpt_dir, exist_ok=True)
+        log_csv_path = args.log_csv or os.path.join(args.ckpt_dir, "training_log.csv")
 
-    print(f"Loading train splits: {args.train_splits} | val: {args.val_split} ...")
-    train_loaders = [
-        get_dataloader(
-            args.data_root,
-            split,
-            args.batch_size,
+        if is_main_process:
+            print(f"Device: {device}")
+            if is_distributed:
+                print(
+                    f"Distributed: enabled | rank={rank} local_rank={local_rank} "
+                    f"world_size={world_size}"
+                )
+            else:
+                print("Distributed: disabled")
+            print(f"CSV logging: {log_csv_path}")
+            print(f"Loading train splits: {args.train_splits} | val: {args.val_split} ...")
+
+        def _build_train_loaders(download_flag: bool):
+            train_loader_and_samplers = [
+                get_dataloader(
+                    args.data_root,
+                    split,
+                    args.batch_size,
+                    n_mels=args.n_mels,
+                    augment=True,
+                    num_workers=args.num_workers,
+                    download=download_flag,
+                    distributed=is_distributed,
+                    rank=rank,
+                    world_size=world_size,
+                    return_sampler=True,
+                )
+                for split in args.train_splits
+            ]
+            local_train_loaders = [x[0] for x in train_loader_and_samplers]
+            local_train_samplers = [
+                x[1] for x in train_loader_and_samplers if isinstance(x[1], DistributedSampler)
+            ]
+            return local_train_loaders, local_train_samplers
+
+        def _build_val_loader(download_flag: bool):
+            if not is_main_process:
+                return None
+            return get_dataloader(
+                args.data_root,
+                args.val_split,
+                args.batch_size,
+                n_mels=args.n_mels,
+                augment=False,
+                num_workers=args.num_workers,
+                download=download_flag,
+                distributed=False,
+            )
+
+        if is_distributed and args.download:
+            if is_main_process:
+                train_loaders, train_samplers = _build_train_loaders(download_flag=True)
+                val_loader = _build_val_loader(download_flag=True)
+            dist.barrier()
+            if not is_main_process:
+                train_loaders, train_samplers = _build_train_loaders(download_flag=False)
+                val_loader = _build_val_loader(download_flag=False)
+        else:
+            train_loaders, train_samplers = _build_train_loaders(download_flag=args.download)
+            val_loader = _build_val_loader(download_flag=args.download)
+
+        train_len = combined_len(train_loaders)
+
+        model = ConformerASR(
             n_mels=args.n_mels,
-            augment=True,
-            num_workers=args.num_workers,
-            download=args.download,
+            d_model=args.d_model,
+            num_heads=args.num_heads,
+            num_layers=args.num_layers,
+            vocab_size=VOCAB_SIZE,
+            conv_kernel_size=args.conv_kernel,
+        ).to(device)
+        if is_distributed:
+            ddp_kwargs = (
+                {"device_ids": [local_rank], "output_device": local_rank}
+                if device.type == "cuda"
+                else {}
+            )
+            model = DDP(model, **ddp_kwargs)
+        model_for_ckpt = model.module if isinstance(model, DDP) else model
+
+        if is_main_process:
+            num_params = sum(p.numel() for p in model_for_ckpt.parameters() if p.requires_grad)
+            print(f"Model parameters: {num_params / 1e6:.1f}M")
+
+        optimizer = torch.optim.AdamW(
+            model.parameters(),
+            lr=args.lr,
+            weight_decay=args.weight_decay,
+            betas=(0.9, 0.98),
+            eps=1e-9,
         )
-        for split in args.train_splits
-    ]
-    train_len = combined_len(train_loaders)
 
-    val_loader = get_dataloader(
-        args.data_root,
-        args.val_split,
-        args.batch_size,
-        n_mels=args.n_mels,
-        augment=False,
-        num_workers=args.num_workers,
-        download=args.download,
-    )
-
-    model = ConformerASR(
-        n_mels=args.n_mels,
-        d_model=args.d_model,
-        num_heads=args.num_heads,
-        num_layers=args.num_layers,
-        vocab_size=VOCAB_SIZE,
-        conv_kernel_size=args.conv_kernel,
-    ).to(device)
-
-    num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    print(f"Model parameters: {num_params / 1e6:.1f}M")
-
-    optimizer = torch.optim.AdamW(
-        model.parameters(),
-        lr=args.lr,
-        weight_decay=args.weight_decay,
-        betas=(0.9, 0.98),
-        eps=1e-9,
-    )
-
-    steps_per_epoch = math.ceil(train_len / max(1, args.accum_steps))
-    total_steps = steps_per_epoch * args.epochs
-    scheduler = WarmupCosineScheduler(
-        optimizer,
-        args.warmup_steps,
-        total_steps,
-        peak_lr=args.lr,
-    )
-
-    scaler = GradScaler(device=device.type, enabled=(device.type == "cuda"))
-
-    start_epoch = 0
-    best_wer = float("inf")
-
-    if args.resume_path:
-        if not os.path.exists(args.resume_path):
-            raise FileNotFoundError(f"Resume checkpoint not found: {args.resume_path}")
-        ckpt = torch.load(args.resume_path, map_location=device, weights_only=False)
-        model.load_state_dict(ckpt["model"])
-        optimizer.load_state_dict(ckpt["optimizer"])
-        scheduler.step_count = ckpt.get("step", 0)
-        start_epoch = ckpt.get("epoch", 0) + 1
-        best_wer = ckpt.get("best_wer", float("inf"))
-        print(f"Resumed from epoch {start_epoch}, best WER: {best_wer:.2%}")
-
-    for epoch_idx in range(start_epoch, args.epochs):
-        t0 = time.time()
-        print("\n" + "=" * 60)
-        print(f"Epoch {epoch_idx + 1}/{args.epochs}")
-        print("=" * 60)
-
-        train_loader = combined_loader(train_loaders, shuffle=True)
-
-        train_loss = train_one_epoch(
-            model,
-            train_loader,
-            train_len,
+        steps_per_epoch = math.ceil(train_len / max(1, args.accum_steps))
+        total_steps = steps_per_epoch * args.epochs
+        scheduler = WarmupCosineScheduler(
             optimizer,
-            scheduler,
-            scaler,
-            device,
-            args.grad_clip,
-            args.accum_steps,
+            args.warmup_steps,
+            total_steps,
+            peak_lr=args.lr,
         )
 
-        token_prune = args.beam_token_prune if args.beam_token_prune > 0 else None
-        val_loss, val_wer = evaluate(
-            model,
-            val_loader,
-            device,
-            beam_size=args.beam_size,
-            token_prune=token_prune,
-        )
-        elapsed = time.time() - t0
+        scaler = GradScaler(device=device.type, enabled=(device.type == "cuda"))
 
-        print(f"\nEpoch {epoch_idx + 1} summary:")
-        print(f"  Train loss: {train_loss:.4f}")
-        print(f"  Val loss:   {val_loss:.4f}")
-        print(f"  Val WER:    {val_wer:.2%}")
-        print(f"  Time:       {elapsed:.0f}s")
+        start_epoch = 0
+        best_wer = float("inf")
 
-        ckpt = {
-            "epoch": epoch_idx,
-            "model": model.state_dict(),
-            "optimizer": optimizer.state_dict(),
-            "step": scheduler.step_count,
-            "val_loss": val_loss,
-            "val_wer": val_wer,
-            "best_wer": min(best_wer, val_wer),
-            "config": {
-                "data_root": args.data_root,
-                "train_splits": args.train_splits,
-                "val_split": args.val_split,
-                "d_model": args.d_model,
-                "num_heads": args.num_heads,
-                "num_layers": args.num_layers,
-                "n_mels": args.n_mels,
-                "conv_kernel": args.conv_kernel,
-                "epochs": args.epochs,
-                "batch_size": args.batch_size,
-                "accum_steps": args.accum_steps,
-                "lr": args.lr,
-                "warmup_steps": args.warmup_steps,
-                "weight_decay": args.weight_decay,
-                "grad_clip": args.grad_clip,
-                "num_workers": args.num_workers,
-                "beam_size": args.beam_size,
-                "beam_token_prune": args.beam_token_prune,
-            },
-        }
-        torch.save(ckpt, os.path.join(args.ckpt_dir, "last.pt"))
+        resume_path = args.resume_path
+        if resume_path is None and args.auto_resume:
+            auto_path = os.path.join(args.ckpt_dir, "last.pt")
+            if os.path.exists(auto_path):
+                resume_path = auto_path
+                if is_main_process:
+                    print(f"Auto-resume checkpoint found: {resume_path}")
 
-        if val_wer < best_wer:
-            best_wer = val_wer
-            torch.save(ckpt, os.path.join(args.ckpt_dir, "best.pt"))
-            print(f"  ** New best WER: {best_wer:.2%} **")
+        if resume_path:
+            if not os.path.exists(resume_path):
+                raise FileNotFoundError(f"Resume checkpoint not found: {resume_path}")
+            ckpt = torch.load(resume_path, map_location=device, weights_only=False)
+            model_for_ckpt.load_state_dict(ckpt["model"])
+            if "optimizer" in ckpt:
+                optimizer.load_state_dict(ckpt["optimizer"])
+            if "scheduler" in ckpt:
+                scheduler.load_state_dict(ckpt["scheduler"])
+            else:
+                scheduler.load_state_dict({"step_count": ckpt.get("step", 0)})
+            if "scaler" in ckpt and ckpt["scaler"] is not None:
+                scaler.load_state_dict(ckpt["scaler"])
+            start_epoch = ckpt.get("epoch", 0) + 1
+            best_wer = ckpt.get("best_wer", float("inf"))
+            if is_main_process:
+                print(
+                    f"Resumed from {resume_path} | next epoch: {start_epoch + 1} / {args.epochs} | "
+                    f"best WER: {best_wer:.2%} | scheduler_step: {scheduler.step_count}"
+                )
+            if start_epoch >= args.epochs:
+                if is_main_process:
+                    print(
+                        f"Checkpoint already reached epoch {start_epoch}. "
+                        f"Increase --epochs above {start_epoch} to continue training."
+                    )
+                return
 
-    print(f"\nTraining complete. Best WER: {best_wer:.2%}")
+        for epoch_idx in range(start_epoch, args.epochs):
+            t0 = time.time()
+            if is_main_process:
+                print("\n" + "=" * 60)
+                print(f"Epoch {epoch_idx + 1}/{args.epochs}")
+                print("=" * 60)
+
+            for sampler in train_samplers:
+                sampler.set_epoch(epoch_idx)
+
+            train_loader = combined_loader(train_loaders, shuffle=True)
+            global_step_offset = epoch_idx * train_len
+
+            train_loss, step_rows, num_batches = train_one_epoch(
+                model,
+                train_loader,
+                train_len,
+                optimizer,
+                scheduler,
+                scaler,
+                device,
+                args.grad_clip,
+                args.accum_steps,
+                epoch_num=epoch_idx + 1,
+                global_step_offset=global_step_offset,
+                is_distributed=is_distributed,
+                is_main_process=is_main_process,
+            )
+
+            if is_distributed:
+                dist.barrier()
+
+            if is_main_process:
+                token_prune = args.beam_token_prune if args.beam_token_prune > 0 else None
+                val_loss, val_wer = evaluate(
+                    model_for_ckpt,
+                    val_loader,
+                    device,
+                    beam_size=args.beam_size,
+                    token_prune=token_prune,
+                )
+            else:
+                val_loss, val_wer = 0.0, 0.0
+
+            if is_distributed:
+                val_metrics = torch.tensor([val_loss, val_wer], device=device, dtype=torch.float64)
+                dist.broadcast(val_metrics, src=0)
+                val_loss = float(val_metrics[0].item())
+                val_wer = float(val_metrics[1].item())
+
+            elapsed = time.time() - t0
+
+            if is_main_process:
+                print(f"\nEpoch {epoch_idx + 1} summary:")
+                print(f"  Train loss: {train_loss:.4f}")
+                print(f"  Val loss:   {val_loss:.4f}")
+                print(f"  Val WER:    {val_wer:.2%}")
+                print(f"  Time:       {elapsed:.0f}s")
+
+                epoch_rows = step_rows + [
+                    {
+                        "record_type": "epoch_summary",
+                        "epoch": epoch_idx + 1,
+                        "step": num_batches,
+                        "global_step": global_step_offset + num_batches,
+                        "optimizer_step": scheduler.step_count,
+                        "train_step_loss": "",
+                        "train_running_loss": "",
+                        "train_epoch_loss": train_loss,
+                        "val_loss": val_loss,
+                        "val_wer": val_wer,
+                        "lr": scheduler.get_lr(),
+                        "elapsed_sec": elapsed,
+                        "best_wer": min(best_wer, val_wer),
+                    }
+                ]
+                append_csv_rows(log_csv_path, epoch_rows)
+
+                ckpt = {
+                    "epoch": epoch_idx,
+                    "model": model_for_ckpt.state_dict(),
+                    "optimizer": optimizer.state_dict(),
+                    "scheduler": scheduler.state_dict(),
+                    "scaler": scaler.state_dict(),
+                    "step": scheduler.step_count,
+                    "val_loss": val_loss,
+                    "val_wer": val_wer,
+                    "best_wer": min(best_wer, val_wer),
+                    "config": {
+                        "data_root": args.data_root,
+                        "train_splits": args.train_splits,
+                        "val_split": args.val_split,
+                        "d_model": args.d_model,
+                        "num_heads": args.num_heads,
+                        "num_layers": args.num_layers,
+                        "n_mels": args.n_mels,
+                        "conv_kernel": args.conv_kernel,
+                        "epochs": args.epochs,
+                        "batch_size": args.batch_size,
+                        "accum_steps": args.accum_steps,
+                        "lr": args.lr,
+                        "warmup_steps": args.warmup_steps,
+                        "weight_decay": args.weight_decay,
+                        "grad_clip": args.grad_clip,
+                        "num_workers": args.num_workers,
+                        "beam_size": args.beam_size,
+                        "beam_token_prune": args.beam_token_prune,
+                        "world_size": world_size,
+                    },
+                }
+                torch.save(ckpt, os.path.join(args.ckpt_dir, "last.pt"))
+
+                if val_wer < best_wer:
+                    best_wer = val_wer
+                    torch.save(ckpt, os.path.join(args.ckpt_dir, "best.pt"))
+                    print(f"  ** New best WER: {best_wer:.2%} **")
+
+        if is_main_process:
+            print(f"\nTraining complete. Best WER: {best_wer:.2%}")
+    finally:
+        _cleanup_distributed(is_distributed)
 
 
 if __name__ == "__main__":

@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torchaudio
 from torch.utils.data import Dataset, DataLoader
+from torch.utils.data.distributed import DistributedSampler
 from typing import List, Tuple, Optional
 import os
 
@@ -204,17 +205,35 @@ def get_dataloader(
     augment: bool = False,
     num_workers: int = 4,
     download: bool = True,
-) -> DataLoader:
+    distributed: bool = False,
+    rank: int = 0,
+    world_size: int = 1,
+    return_sampler: bool = False,
+) -> DataLoader | tuple[DataLoader, Optional[DistributedSampler]]:
     dataset = LibriSpeechASR(
         root=root, split=split, n_mels=n_mels, augment=augment, download=download
     )
     shuffle = "train" in split
-    return DataLoader(
+    sampler: Optional[DistributedSampler] = None
+    if distributed:
+        sampler = DistributedSampler(
+            dataset,
+            num_replicas=world_size,
+            rank=rank,
+            shuffle=shuffle,
+            drop_last=shuffle,
+        )
+
+    loader = DataLoader(
         dataset,
         batch_size=batch_size,
-        shuffle=shuffle,
+        shuffle=(shuffle and sampler is None),
+        sampler=sampler,
         num_workers=num_workers,
         collate_fn=collate_fn,
         pin_memory=True,
-        drop_last=shuffle,
+        drop_last=(shuffle and sampler is None),
     )
+    if return_sampler:
+        return loader, sampler
+    return loader
