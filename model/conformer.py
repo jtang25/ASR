@@ -1,8 +1,26 @@
+"""Conformer encoder building blocks.
+
+Implements the Conformer block from:
+  'Conformer: Convolution-augmented Transformer for Speech Recognition'
+  (Gulati et al., 2020)
+
+Changes from a vanilla Transformer block:
+  - Macaron-style half-step FFN pair sandwiching attention + convolution
+  - Relative sinusoidal positional encoding (Transformer-XL style)
+  - Depthwise separable convolution with GLU gating and BatchNorm
+  - SiLU (Swish) activations throughout
+"""
+
+import math
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import math
 
+
+# ---------------------------------------------------------------------------
+# Relative Sinusoidal Positional Encoding
+# ---------------------------------------------------------------------------
 
 class RelativeSinusoidalPE(nn.Module):
     def __init__(self, d_model: int, max_len: int = 2048):
@@ -18,18 +36,26 @@ class RelativeSinusoidalPE(nn.Module):
         pe = torch.zeros(2 * max_len - 1, d_model)
         pe[:, 0::2] = torch.sin(angles)
         pe[:, 1::2] = torch.cos(angles)
-
         self.register_buffer("pe", pe)
 
     def forward(self, seq_len: int) -> torch.Tensor:
+        if seq_len > self.max_len:
+            raise ValueError(
+                f"seq_len={seq_len} exceeds max_len={self.max_len}. "
+                "Increase --max-len or reduce input length."
+            )
         center = self.max_len - 1
         start = center - (seq_len - 1)
         end = center + seq_len
         return self.pe[start:end]  # (2L-1, d_model)
 
 
+# ---------------------------------------------------------------------------
+# Multi-Head Self-Attention with Relative Position Encoding
+# ---------------------------------------------------------------------------
+
 class MultiHeadSelfAttention(nn.Module):
-    def __init__(self, d_model, num_heads, dropout=0.0, max_len: int = 2048):
+    def __init__(self, d_model: int, num_heads: int, dropout: float = 0.0, max_len: int = 2048):
         super().__init__()
         assert d_model % num_heads == 0
         self.d_model = d_model
@@ -51,62 +77,49 @@ class MultiHeadSelfAttention(nn.Module):
         nn.init.xavier_uniform_(self.u.unsqueeze(0))
         nn.init.xavier_uniform_(self.v.unsqueeze(0))
 
-    def split_heads(self, x):
-        B, L, D = x.size()
+    def split_heads(self, x: torch.Tensor) -> torch.Tensor:
+        B, L, _ = x.size()
         return x.view(B, L, self.num_heads, self.head_dim).transpose(1, 2)
 
-    def combine_heads(self, x):
+    def combine_heads(self, x: torch.Tensor) -> torch.Tensor:
         B, H, L, Hd = x.size()
         return x.transpose(1, 2).contiguous().view(B, L, H * Hd)
 
-    def _relative_gather(self, QR, L):
-        """
-        Convert raw position scores (B, H, L, 2L-1) to properly indexed
-        relative position scores (B, H, L, L).
-
-        For query position i and key position j, the relative position
-        embedding index is (i - j + L - 1).
-        """
+    def _relative_gather(self, QR: torch.Tensor, L: int) -> torch.Tensor:
+        """Map raw position scores (B, H, L, 2L-1) to relative scores (B, H, L, L)."""
         B, H = QR.shape[:2]
-        i_idx = torch.arange(L, device=QR.device).unsqueeze(1)  # (L, 1)
-        j_idx = torch.arange(L, device=QR.device).unsqueeze(0)  # (1, L)
-        rel_idx = (i_idx - j_idx + (L - 1)).long()  # (L, L)
+        i_idx = torch.arange(L, device=QR.device).unsqueeze(1)
+        j_idx = torch.arange(L, device=QR.device).unsqueeze(0)
+        rel_idx = (i_idx - j_idx + (L - 1)).long()
         rel_idx = rel_idx[None, None].expand(B, H, L, L)
         return QR.gather(dim=-1, index=rel_idx)
 
-    def forward(self, q, k, v, mask=None):
+    def forward(self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask=None) -> torch.Tensor:
         B, L, _ = q.size()
 
-        Q = self.split_heads(self.W_q(q))  # (B, H, L, d)
-        K = self.split_heads(self.W_k(k))  # (B, H, L, d)
-        V = self.split_heads(self.W_v(v))  # (B, H, L, d)
+        Q = self.split_heads(self.W_q(q))
+        K = self.split_heads(self.W_k(k))
+        V = self.split_heads(self.W_v(v))
 
-        # Relative position embeddings
-        R = self.rel_pe(L)  # (2L-1, d_model)
-        R = self.W_r(R)  # (2L-1, d_model)
-        R = R.view(-1, self.num_heads, self.head_dim).permute(1, 0, 2)  # (H, 2L-1, d)
+        R = self.rel_pe(L)
+        R = self.W_r(R)
+        R = R.view(-1, self.num_heads, self.head_dim).permute(1, 0, 2)
 
-        # Content-to-content + global content bias: (Q + u) @ K^T
-        content_score = torch.matmul(
-            Q + self.u[None, :, None, :], K.transpose(-2, -1)
-        )  # (B, H, L, L)
+        # Content-to-content + global content bias
+        content_score = torch.matmul(Q + self.u[None, :, None, :], K.transpose(-2, -1))
 
-        # Content-to-position + global position bias: (Q + v) @ R^T
-        QR = torch.matmul(
-            Q + self.v[None, :, None, :], R.transpose(-2, -1)
-        )  # (B, H, L, 2L-1)
-        position_score = self._relative_gather(QR, L)  # (B, H, L, L)
+        # Content-to-position + global position bias
+        QR = torch.matmul(Q + self.v[None, :, None, :], R.transpose(-2, -1))
+        position_score = self._relative_gather(QR, L)
 
-        # Combine and scale
         scores = (content_score + position_score) / math.sqrt(self.head_dim)
 
-        # Apply mask
         if mask is not None:
             if mask.dim() == 2:
-                mask = mask[:, None, None, :]  # (B, L) -> (B, 1, 1, L)
+                mask = mask[:, None, None, :]      # (B, L) -> (B, 1, 1, L)
             elif mask.dim() == 3:
-                mask = mask[:, None, :, :]  # (B, L, L) -> (B, 1, L, L)
-            scores = scores.masked_fill(mask == 0, torch.finfo(scores.dtype).min)
+                mask = mask[:, None, :, :]          # (B, L, L) -> (B, 1, L, L)
+            scores = scores.masked_fill(~mask, torch.finfo(scores.dtype).min)
 
         attn_weights = F.softmax(scores, dim=-1)
         attn_weights = self.dropout(attn_weights)
@@ -118,8 +131,12 @@ class MultiHeadSelfAttention(nn.Module):
         return out
 
 
+# ---------------------------------------------------------------------------
+# Feed-Forward Network (Macaron half-step)
+# ---------------------------------------------------------------------------
+
 class FeedForwardNetwork(nn.Module):
-    def __init__(self, d_model, expansion=4, dropout=0.1, residual_scale=0.5):
+    def __init__(self, d_model: int, expansion: int = 4, dropout: float = 0.1, residual_scale: float = 0.5):
         super().__init__()
         d_ff = d_model * expansion
         self.ln = nn.LayerNorm(d_model)
@@ -130,7 +147,7 @@ class FeedForwardNetwork(nn.Module):
         self.drop2 = nn.Dropout(dropout)
         self.residual_scale = residual_scale
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         y = self.ln(x)
         y = self.fc1(y)
         y = self.act(y)
@@ -140,15 +157,22 @@ class FeedForwardNetwork(nn.Module):
         return x + self.residual_scale * y
 
 
+# ---------------------------------------------------------------------------
+# Convolution Module
+# ---------------------------------------------------------------------------
+
 class ConvolutionNetwork(nn.Module):
-    def __init__(self, d_model, kernel_size=31, dropout=0.1):
+    def __init__(self, d_model: int, kernel_size: int = 32, dropout: float = 0.1):
         super().__init__()
         self.ln = nn.LayerNorm(d_model)
         self.pw_conv1 = nn.Conv1d(d_model, 2 * d_model, kernel_size=1)
         self.glu = nn.GLU(dim=1)
-        pad = (kernel_size - 1) // 2
+        # Manual "same" padding to avoid CUDA issues with padding="same"
+        self.kernel_size = int(kernel_size)
+        self.pad_left = (self.kernel_size - 1) // 2
+        self.pad_right = self.kernel_size // 2
         self.dw_conv = nn.Conv1d(
-            d_model, d_model, kernel_size, padding=pad, groups=d_model
+            d_model, d_model, kernel_size, padding=0, groups=d_model
         )
         self.bn = nn.BatchNorm1d(d_model)
         self.act = nn.SiLU()
@@ -160,6 +184,8 @@ class ConvolutionNetwork(nn.Module):
         y = y.transpose(1, 2)
         y = self.pw_conv1(y)
         y = self.glu(y)
+        if self.pad_left or self.pad_right:
+            y = F.pad(y, (self.pad_left, self.pad_right))
         y = self.dw_conv(y)
         y = self.bn(y)
         y = self.act(y)
@@ -169,24 +195,28 @@ class ConvolutionNetwork(nn.Module):
         return x + y
 
 
+# ---------------------------------------------------------------------------
+# Conformer Block
+# ---------------------------------------------------------------------------
+
 class ConformerBlock(nn.Module):
     def __init__(
         self,
-        d_model,
-        num_heads,
-        ffn_expansion=4,
-        ffn_dropout=0.1,
-        attn_dropout=0.1,
-        conv_kernel_size=31,
-        conv_dropout=0.1,
-        max_len=2048,
+        d_model: int,
+        num_heads: int,
+        ffn_expansion: int = 4,
+        ffn_dropout: float = 0.1,
+        attn_dropout: float = 0.1,
+        conv_kernel_size: int = 32,
+        conv_dropout: float = 0.1,
+        max_len: int = 2048,
     ):
         super().__init__()
-        self.ffn1 = FeedForwardNetwork(d_model, ffn_expansion, ffn_dropout, 0.5)
+        self.ffn1 = FeedForwardNetwork(d_model, ffn_expansion, ffn_dropout, residual_scale=0.5)
         self.mhsa_ln = nn.LayerNorm(d_model)
         self.mhsa = MultiHeadSelfAttention(d_model, num_heads, attn_dropout, max_len)
         self.conv = ConvolutionNetwork(d_model, conv_kernel_size, conv_dropout)
-        self.ffn2 = FeedForwardNetwork(d_model, ffn_expansion, ffn_dropout, 0.5)
+        self.ffn2 = FeedForwardNetwork(d_model, ffn_expansion, ffn_dropout, residual_scale=0.5)
         self.final_ln = nn.LayerNorm(d_model)
 
     def forward(self, x: torch.Tensor, mask=None) -> torch.Tensor:

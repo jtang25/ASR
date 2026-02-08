@@ -1,39 +1,33 @@
+"""Data loading and feature extraction for Conformer ASR.
+
+Supports both character-level and SentencePiece tokenization.
+SpecAugment follows the paper: F=27, 2 freq masks, 10 time masks with pS=0.05.
+"""
+
+from __future__ import annotations
+
+from typing import List, Optional, Tuple
+
 import torch
 import torch.nn as nn
 import torchaudio
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader, Dataset
 from torch.utils.data.distributed import DistributedSampler
-from typing import List, Tuple, Optional
-import os
 
+from tokenizer import CharTokenizer, SentencePieceTokenizer
 
-# ---------------------------------------------------------------------------
-# Character Tokenizer
-# ---------------------------------------------------------------------------
-# Vocab: 0=<blank> (CTC), 1=<space>, 2=', 3-28=a-z
-# Total: 29 tokens
-
-BLANK_IDX = 0
-VOCAB = ["<blank>", " ", "'"] + list("abcdefghijklmnopqrstuvwxyz")
-CHAR_TO_IDX = {c: i for i, c in enumerate(VOCAB)}
-IDX_TO_CHAR = {i: c for i, c in enumerate(VOCAB)}
-VOCAB_SIZE = len(VOCAB)
+# Re-export for backward compatibility
+from tokenizer import BLANK_IDX, CHAR_VOCAB as VOCAB, CHAR_VOCAB_SIZE as VOCAB_SIZE
 
 
 def text_to_tokens(text: str) -> List[int]:
-    """Convert transcript string to list of token indices."""
-    text = text.lower().strip()
-    tokens = []
-    for ch in text:
-        if ch in CHAR_TO_IDX:
-            tokens.append(CHAR_TO_IDX[ch])
-        # Skip unknown characters (punctuation, etc.)
-    return tokens
+    """Character-level tokenization (backward compat)."""
+    return CharTokenizer().encode(text)
 
 
 def tokens_to_text(tokens: List[int]) -> str:
-    """Convert token indices back to string."""
-    return "".join(IDX_TO_CHAR.get(t, "") for t in tokens if t != BLANK_IDX)
+    """Character-level decoding (backward compat)."""
+    return CharTokenizer().decode(tokens)
 
 
 # ---------------------------------------------------------------------------
@@ -41,67 +35,61 @@ def tokens_to_text(tokens: List[int]) -> str:
 # ---------------------------------------------------------------------------
 
 class LogMelSpectrogram(nn.Module):
-    """Compute 80-dim log-mel spectrogram from raw waveform."""
+    """80-dim log-mel spectrogram (25 ms window, 10 ms hop)."""
 
-    def __init__(self, sample_rate=16000, n_mels=80, n_fft=400, hop_length=160):
+    def __init__(self, sample_rate: int = 16000, n_mels: int = 80, n_fft: int = 400, hop_length: int = 160):
         super().__init__()
         self.mel_spec = torchaudio.transforms.MelSpectrogram(
             sample_rate=sample_rate,
-            n_fft=n_fft,          # 25ms window at 16kHz
-            hop_length=hop_length, # 10ms hop at 16kHz
+            n_fft=n_fft,
+            hop_length=hop_length,
             n_mels=n_mels,
             norm="slaney",
             mel_scale="slaney",
         )
 
     def forward(self, waveform: torch.Tensor) -> torch.Tensor:
-        """
-        Args:
-            waveform: (num_samples,) raw audio
-        Returns:
-            features: (T, n_mels) log-mel spectrogram
-        """
-        mel = self.mel_spec(waveform)  # (n_mels, T)
+        mel = self.mel_spec(waveform)          # (n_mels, T)
         log_mel = torch.log(mel + 1e-9)
-        return log_mel.transpose(0, 1)  # (T, n_mels)
+        return log_mel.transpose(0, 1)         # (T, n_mels)
 
 
 # ---------------------------------------------------------------------------
-# SpecAugment
+# SpecAugment (paper spec: F=27, 10 time masks with pS=0.05)
 # ---------------------------------------------------------------------------
 
 class SpecAugment(nn.Module):
-    """SpecAugment: frequency and time masking for data augmentation."""
-
     def __init__(
         self,
         freq_mask_param: int = 27,
-        time_mask_param: int = 100,
         num_freq_masks: int = 2,
-        num_time_masks: int = 2,
+        pS: float = 0.05,
+        num_time_masks: int = 10,
     ):
         super().__init__()
-        self.freq_masks = nn.ModuleList(
-            [torchaudio.transforms.FrequencyMasking(freq_mask_param) for _ in range(num_freq_masks)]
-        )
-        self.time_masks = nn.ModuleList(
-            [torchaudio.transforms.TimeMasking(time_mask_param) for _ in range(num_time_masks)]
-        )
+        self.freq_mask_param = int(freq_mask_param)
+        self.num_freq_masks = int(num_freq_masks)
+        self.pS = float(pS)
+        self.num_time_masks = int(num_time_masks)
 
     def forward(self, mel: torch.Tensor) -> torch.Tensor:
         """
         Args:
-            mel: (T, n_mels) or (n_mels, T) spectrogram
+            mel: (T, n_mels)
         Returns:
-            augmented spectrogram, same shape
+            (T, n_mels)
         """
-        # torchaudio masks expect (channel, freq, time) or (freq, time)
         x = mel.transpose(0, 1).unsqueeze(0)  # (1, n_mels, T)
-        for mask in self.freq_masks:
-            x = mask(x)
-        for mask in self.time_masks:
-            x = mask(x)
-        return x.squeeze(0).transpose(0, 1)  # (T, n_mels)
+
+        for _ in range(self.num_freq_masks):
+            x = torchaudio.transforms.FrequencyMasking(self.freq_mask_param)(x)
+
+        T = x.size(-1)
+        time_mask_param = max(1, int(self.pS * T))
+        for _ in range(self.num_time_masks):
+            x = torchaudio.transforms.TimeMasking(time_mask_param)(x)
+
+        return x.squeeze(0).transpose(0, 1)
 
 
 # ---------------------------------------------------------------------------
@@ -109,7 +97,10 @@ class SpecAugment(nn.Module):
 # ---------------------------------------------------------------------------
 
 class LibriSpeechASR(Dataset):
-    """Wraps torchaudio.datasets.LIBRISPEECH with feature extraction."""
+    """Wraps torchaudio.datasets.LIBRISPEECH with feature extraction.
+
+    Accepts either a CharTokenizer or SentencePieceTokenizer.
+    """
 
     def __init__(
         self,
@@ -118,83 +109,63 @@ class LibriSpeechASR(Dataset):
         n_mels: int = 80,
         augment: bool = False,
         download: bool = True,
+        tokenizer: CharTokenizer | SentencePieceTokenizer | None = None,
     ):
-        self.dataset = torchaudio.datasets.LIBRISPEECH(
-            root=root, url=split, download=download
-        )
+        self.dataset = torchaudio.datasets.LIBRISPEECH(root=root, url=split, download=download)
         self.mel_extractor = LogMelSpectrogram(n_mels=n_mels)
         self.augment = SpecAugment() if augment else None
+        self.tokenizer = tokenizer or CharTokenizer()
 
-        # For global CMVN (computed lazily or skipped — per-utterance norm used here)
-
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.dataset)
 
-    def __getitem__(self, idx) -> Tuple[torch.Tensor, torch.Tensor, int, int]:
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, int, int]:
         waveform, sample_rate, transcript, _, _, _ = self.dataset[idx]
 
-        # Resample if needed (LibriSpeech should already be 16kHz)
         if sample_rate != 16000:
             waveform = torchaudio.functional.resample(waveform, sample_rate, 16000)
 
-        # Extract features
         mel = self.mel_extractor(waveform.squeeze(0))  # (T, n_mels)
 
-        # Per-utterance normalization (zero mean, unit variance)
-        mel = (mel - mel.mean()) / (mel.std() + 1e-9)
+        # Per-feature-bin normalization (zero mean, unit variance over time)
+        mel = (mel - mel.mean(dim=0, keepdim=True)) / (mel.std(dim=0, keepdim=True) + 1e-9)
 
-        # SpecAugment (training only)
         if self.augment is not None:
             mel = self.augment(mel)
 
-        # Tokenize transcript
-        tokens = torch.tensor(text_to_tokens(transcript), dtype=torch.long)
+        tokens = torch.tensor(self.tokenizer.encode(transcript), dtype=torch.long)
 
-        mel_length = mel.size(0)
-        token_length = tokens.size(0)
-
-        return mel, tokens, mel_length, token_length
+        return mel, tokens, int(mel.size(0)), int(tokens.size(0))
 
 
 # ---------------------------------------------------------------------------
-# Collate Function
+# Collate
 # ---------------------------------------------------------------------------
 
 def collate_fn(
-    batch: List[Tuple[torch.Tensor, torch.Tensor, int, int]]
+    batch: List[Tuple[torch.Tensor, torch.Tensor, int, int]],
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-    """
-    Pad mel spectrograms and token sequences to batch max lengths.
-
-    Returns:
-        mel_padded: (B, T_max, n_mels)
-        tokens_padded: (B, S_max)
-        mel_lengths: (B,)
-        token_lengths: (B,)
-    """
     mels, tokens, mel_lengths, token_lengths = zip(*batch)
 
-    mel_lengths = torch.tensor(mel_lengths, dtype=torch.long)
-    token_lengths = torch.tensor(token_lengths, dtype=torch.long)
+    mel_lengths_t = torch.tensor(mel_lengths, dtype=torch.long)
+    token_lengths_t = torch.tensor(token_lengths, dtype=torch.long)
 
-    # Pad mel spectrograms
-    max_mel_len = mel_lengths.max().item()
-    n_mels = mels[0].size(1)
-    mel_padded = torch.zeros(len(mels), max_mel_len, n_mels)
+    max_mel_len = int(mel_lengths_t.max().item())
+    n_mels = int(mels[0].size(1))
+    mel_padded = torch.zeros(len(mels), max_mel_len, n_mels, dtype=mels[0].dtype)
     for i, mel in enumerate(mels):
         mel_padded[i, : mel.size(0)] = mel
 
-    # Pad token sequences
-    max_token_len = token_lengths.max().item()
+    max_token_len = int(token_lengths_t.max().item())
     tokens_padded = torch.zeros(len(tokens), max_token_len, dtype=torch.long)
     for i, tok in enumerate(tokens):
         tokens_padded[i, : tok.size(0)] = tok
 
-    return mel_padded, tokens_padded, mel_lengths, token_lengths
+    return mel_padded, tokens_padded, mel_lengths_t, token_lengths_t
 
 
 # ---------------------------------------------------------------------------
-# DataLoader Helpers
+# DataLoader helper
 # ---------------------------------------------------------------------------
 
 def get_dataloader(
@@ -209,31 +180,42 @@ def get_dataloader(
     rank: int = 0,
     world_size: int = 1,
     return_sampler: bool = False,
+    tokenizer: CharTokenizer | SentencePieceTokenizer | None = None,
 ) -> DataLoader | tuple[DataLoader, Optional[DistributedSampler]]:
+
     dataset = LibriSpeechASR(
-        root=root, split=split, n_mels=n_mels, augment=augment, download=download
+        root=root,
+        split=split,
+        n_mels=n_mels,
+        augment=augment,
+        download=download,
+        tokenizer=tokenizer,
     )
-    shuffle = "train" in split
+
+    is_train = "train" in split
     sampler: Optional[DistributedSampler] = None
     if distributed:
         sampler = DistributedSampler(
             dataset,
             num_replicas=world_size,
             rank=rank,
-            shuffle=shuffle,
-            drop_last=shuffle,
+            shuffle=is_train,
+            drop_last=is_train,
         )
 
     loader = DataLoader(
         dataset,
         batch_size=batch_size,
-        shuffle=(shuffle and sampler is None),
+        shuffle=(is_train and sampler is None),
         sampler=sampler,
         num_workers=num_workers,
         collate_fn=collate_fn,
         pin_memory=True,
-        drop_last=(shuffle and sampler is None),
+        drop_last=is_train,
+        persistent_workers=(num_workers > 0),
+        prefetch_factor=2 if num_workers > 0 else None,
     )
+
     if return_sampler:
         return loader, sampler
     return loader
