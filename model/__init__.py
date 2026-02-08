@@ -1,4 +1,17 @@
-from .model import ConformerASR, ConvSubsampling
-from .conformer import ConformerBlock
+from .model import (
+    ConvSubsampling,
+    ConformerEncoder,
+    ConformerASR,
+    PredictionNetwork,
+    JointNetwork,
+    ConformerTransducer,
+)
 
-__all__ = ["ConformerASR", "ConvSubsampling", "ConformerBlock"]
+__all__ = [
+    "ConvSubsampling",
+    "ConformerEncoder",
+    "ConformerASR",
+    "PredictionNetwork",
+    "JointNetwork",
+    "ConformerTransducer",
+]
