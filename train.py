@@ -88,6 +88,16 @@ def parse_args() -> argparse.Namespace:
         help="Optional checkpoint path to resume from.",
     )
     parser.add_argument(
+        "--reset-scheduler-on-resume",
+        action="store_true",
+        help="Do not load scheduler state from checkpoint when resuming.",
+    )
+    parser.add_argument(
+        "--override-lr-on-resume",
+        action="store_true",
+        help="Force optimizer LR to --lr after loading checkpoint optimizer state.",
+    )
+    parser.add_argument(
         "--auto-resume",
         action="store_true",
         default=True,
@@ -637,18 +647,32 @@ def main() -> None:
             model_for_ckpt.load_state_dict(ckpt["model"])
             if "optimizer" in ckpt:
                 optimizer.load_state_dict(ckpt["optimizer"])
-            if "scheduler" in ckpt:
-                scheduler.load_state_dict(ckpt["scheduler"])
+            if args.override_lr_on_resume:
+                for pg in optimizer.param_groups:
+                    pg["lr"] = args.lr
+            if not args.reset_scheduler_on_resume:
+                if "scheduler" in ckpt:
+                    scheduler.load_state_dict(ckpt["scheduler"])
+                else:
+                    scheduler.load_state_dict({"step_count": ckpt.get("step", 0)})
             else:
-                scheduler.load_state_dict({"step_count": ckpt.get("step", 0)})
+                scheduler.step_count = 0
+                for pg in optimizer.param_groups:
+                    pg["lr"] = args.lr
             if "scaler" in ckpt and ckpt["scaler"] is not None:
                 scaler.load_state_dict(ckpt["scaler"])
             start_epoch = ckpt.get("epoch", 0) + 1
             best_wer = ckpt.get("best_wer", float("inf"))
             if is_main_process:
+                resume_mode = (
+                    "reset_scheduler"
+                    if args.reset_scheduler_on_resume
+                    else f"restore_scheduler(step={scheduler.step_count})"
+                )
                 print(
                     f"Resumed from {resume_path} | next epoch: {start_epoch + 1} / {args.epochs} | "
-                    f"best WER: {best_wer:.2%} | scheduler_step: {scheduler.step_count}"
+                    f"best WER: {best_wer:.2%} | {resume_mode} | "
+                    f"lr_now: {optimizer.param_groups[0]['lr']:.2e}"
                 )
             if start_epoch >= args.epochs:
                 if is_main_process:
