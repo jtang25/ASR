@@ -6,11 +6,13 @@ SpecAugment follows the paper: F=27, 2 freq masks, 10 time masks with pS=0.05.
 
 from __future__ import annotations
 
+import os
 from typing import List, Optional, Tuple
 
 import torch
 import torch.nn as nn
 import torchaudio
+from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import DataLoader, Dataset
 from torch.utils.data.distributed import DistributedSampler
 
@@ -71,6 +73,10 @@ class SpecAugment(nn.Module):
         self.num_freq_masks = int(num_freq_masks)
         self.pS = float(pS)
         self.num_time_masks = int(num_time_masks)
+        self.freq_masks = nn.ModuleList(
+            [torchaudio.transforms.FrequencyMasking(self.freq_mask_param) for _ in range(self.num_freq_masks)]
+        )
+        self.time_mask = torchaudio.transforms.TimeMasking(time_mask_param=1)
 
     def forward(self, mel: torch.Tensor) -> torch.Tensor:
         """
@@ -81,13 +87,13 @@ class SpecAugment(nn.Module):
         """
         x = mel.transpose(0, 1).unsqueeze(0)  # (1, n_mels, T)
 
-        for _ in range(self.num_freq_masks):
-            x = torchaudio.transforms.FrequencyMasking(self.freq_mask_param)(x)
+        for freq_mask in self.freq_masks:
+            x = freq_mask(x)
 
         T = x.size(-1)
-        time_mask_param = max(1, int(self.pS * T))
+        self.time_mask.time_mask_param = max(1, int(self.pS * T))
         for _ in range(self.num_time_masks):
-            x = torchaudio.transforms.TimeMasking(time_mask_param)(x)
+            x = self.time_mask(x)
 
         return x.squeeze(0).transpose(0, 1)
 
@@ -111,7 +117,24 @@ class LibriSpeechASR(Dataset):
         download: bool = True,
         tokenizer: CharTokenizer | SentencePieceTokenizer | None = None,
     ):
-        self.dataset = torchaudio.datasets.LIBRISPEECH(root=root, url=split, download=download)
+        split_root = os.path.join(root, "LibriSpeech", split)
+        nested_split_root = os.path.join(split_root, split)
+
+        if os.path.isdir(nested_split_root):
+            # Some extractions create .../LibriSpeech/<split>/<split>/...
+            # Point LIBRISPEECH to the parent and disable archive prefix.
+            ds_root = split_root
+            folder_in_archive = ""
+        else:
+            ds_root = root
+            folder_in_archive = "LibriSpeech"
+
+        self.dataset = torchaudio.datasets.LIBRISPEECH(
+            root=ds_root,
+            url=split,
+            folder_in_archive=folder_in_archive,
+            download=download,
+        )
         self.mel_extractor = LogMelSpectrogram(n_mels=n_mels)
         self.augment = SpecAugment() if augment else None
         self.tokenizer = tokenizer or CharTokenizer()
@@ -150,16 +173,8 @@ def collate_fn(
     mel_lengths_t = torch.tensor(mel_lengths, dtype=torch.long)
     token_lengths_t = torch.tensor(token_lengths, dtype=torch.long)
 
-    max_mel_len = int(mel_lengths_t.max().item())
-    n_mels = int(mels[0].size(1))
-    mel_padded = torch.zeros(len(mels), max_mel_len, n_mels, dtype=mels[0].dtype)
-    for i, mel in enumerate(mels):
-        mel_padded[i, : mel.size(0)] = mel
-
-    max_token_len = int(token_lengths_t.max().item())
-    tokens_padded = torch.zeros(len(tokens), max_token_len, dtype=torch.long)
-    for i, tok in enumerate(tokens):
-        tokens_padded[i, : tok.size(0)] = tok
+    mel_padded = pad_sequence(mels, batch_first=True)
+    tokens_padded = pad_sequence(tokens, batch_first=True, padding_value=0)
 
     return mel_padded, tokens_padded, mel_lengths_t, token_lengths_t
 
@@ -175,6 +190,9 @@ def get_dataloader(
     n_mels: int = 80,
     augment: bool = False,
     num_workers: int = 4,
+    prefetch_factor: int = 4,
+    pin_memory: bool = True,
+    persistent_workers: bool = True,
     download: bool = True,
     distributed: bool = False,
     rank: int = 0,
@@ -210,10 +228,10 @@ def get_dataloader(
         sampler=sampler,
         num_workers=num_workers,
         collate_fn=collate_fn,
-        pin_memory=True,
+        pin_memory=pin_memory,
         drop_last=is_train,
-        persistent_workers=(num_workers > 0),
-        prefetch_factor=2 if num_workers > 0 else None,
+        persistent_workers=(persistent_workers and num_workers > 0),
+        prefetch_factor=prefetch_factor if num_workers > 0 else None,
     )
 
     if return_sampler:

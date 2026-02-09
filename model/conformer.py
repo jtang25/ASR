@@ -76,6 +76,9 @@ class MultiHeadSelfAttention(nn.Module):
         self.v = nn.Parameter(torch.zeros(num_heads, self.head_dim))
         nn.init.xavier_uniform_(self.u.unsqueeze(0))
         nn.init.xavier_uniform_(self.v.unsqueeze(0))
+        self._cached_rel_idx: torch.Tensor | None = None
+        self._cached_rel_idx_len = -1
+        self._cached_rel_idx_device = ""
 
     def split_heads(self, x: torch.Tensor) -> torch.Tensor:
         B, L, _ = x.size()
@@ -88,10 +91,17 @@ class MultiHeadSelfAttention(nn.Module):
     def _relative_gather(self, QR: torch.Tensor, L: int) -> torch.Tensor:
         """Map raw position scores (B, H, L, 2L-1) to relative scores (B, H, L, L)."""
         B, H = QR.shape[:2]
-        i_idx = torch.arange(L, device=QR.device).unsqueeze(1)
-        j_idx = torch.arange(L, device=QR.device).unsqueeze(0)
-        rel_idx = (i_idx - j_idx + (L - 1)).long()
-        rel_idx = rel_idx[None, None].expand(B, H, L, L)
+        if (
+            self._cached_rel_idx is None
+            or self._cached_rel_idx_len != L
+            or self._cached_rel_idx_device != str(QR.device)
+        ):
+            i_idx = torch.arange(L, device=QR.device).unsqueeze(1)
+            j_idx = torch.arange(L, device=QR.device).unsqueeze(0)
+            self._cached_rel_idx = (i_idx - j_idx + (L - 1)).long()
+            self._cached_rel_idx_len = L
+            self._cached_rel_idx_device = str(QR.device)
+        rel_idx = self._cached_rel_idx[None, None].expand(B, H, L, L)
         return QR.gather(dim=-1, index=rel_idx)
 
     def forward(self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask=None) -> torch.Tensor:
@@ -162,15 +172,20 @@ class FeedForwardNetwork(nn.Module):
 # ---------------------------------------------------------------------------
 
 class ConvolutionNetwork(nn.Module):
-    def __init__(self, d_model: int, kernel_size: int = 32, dropout: float = 0.1):
+    def __init__(self, d_model: int, kernel_size: int = 32, dropout: float = 0.1, causal: bool = False):
         super().__init__()
         self.ln = nn.LayerNorm(d_model)
         self.pw_conv1 = nn.Conv1d(d_model, 2 * d_model, kernel_size=1)
         self.glu = nn.GLU(dim=1)
-        # Manual "same" padding to avoid CUDA issues with padding="same"
+        # Manual padding to avoid CUDA issues with padding="same"
         self.kernel_size = int(kernel_size)
-        self.pad_left = (self.kernel_size - 1) // 2
-        self.pad_right = self.kernel_size // 2
+        self.causal = bool(causal)
+        if self.causal:
+            self.pad_left = self.kernel_size - 1
+            self.pad_right = 0
+        else:
+            self.pad_left = (self.kernel_size - 1) // 2
+            self.pad_right = self.kernel_size // 2
         self.dw_conv = nn.Conv1d(
             d_model, d_model, kernel_size, padding=0, groups=d_model
         )
@@ -210,12 +225,13 @@ class ConformerBlock(nn.Module):
         conv_kernel_size: int = 32,
         conv_dropout: float = 0.1,
         max_len: int = 2048,
+        causal_conv: bool = False,
     ):
         super().__init__()
         self.ffn1 = FeedForwardNetwork(d_model, ffn_expansion, ffn_dropout, residual_scale=0.5)
         self.mhsa_ln = nn.LayerNorm(d_model)
         self.mhsa = MultiHeadSelfAttention(d_model, num_heads, attn_dropout, max_len)
-        self.conv = ConvolutionNetwork(d_model, conv_kernel_size, conv_dropout)
+        self.conv = ConvolutionNetwork(d_model, conv_kernel_size, conv_dropout, causal=causal_conv)
         self.ffn2 = FeedForwardNetwork(d_model, ffn_expansion, ffn_dropout, residual_scale=0.5)
         self.final_ln = nn.LayerNorm(d_model)
 

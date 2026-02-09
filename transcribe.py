@@ -226,6 +226,10 @@ def _load_model(checkpoint: str, device: torch.device) -> tuple[ConformerASR, di
 
     ckpt = torch.load(checkpoint, map_location=device, weights_only=False)
     ckpt_args = ckpt.get("args", {}) or ckpt.get("config", {}) or {}
+    streaming_chunk_size = int(ckpt_args.get("streaming_chunk_size", 0))
+    streaming_left_context_chunks = int(ckpt_args.get("streaming_left_context_chunks", -1))
+    streaming_right_context = int(ckpt_args.get("streaming_right_context", 0))
+    streaming_causal_conv = bool(ckpt_args.get("streaming_causal_conv", False))
 
     model = ConformerASR(
         n_mels=ckpt_args.get("n_mels", 80),
@@ -235,6 +239,10 @@ def _load_model(checkpoint: str, device: torch.device) -> tuple[ConformerASR, di
         vocab_size=VOCAB_SIZE,
         conv_kernel_size=ckpt_args.get("conv_kernel", 31),
         max_len=ckpt_args.get("max_len", 2048),
+        streaming_chunk_size=streaming_chunk_size,
+        streaming_left_context_chunks=streaming_left_context_chunks,
+        streaming_right_context=streaming_right_context,
+        streaming_causal_conv=streaming_causal_conv,
     ).to(device)
 
     model.load_state_dict(ckpt["model"])

@@ -76,8 +76,16 @@ class ConformerEncoder(nn.Module):
         conv_kernel_size: int = 32,
         conv_dropout: float = 0.1,
         max_len: int = 2048,
+        streaming_chunk_size: int = 0,
+        streaming_left_context_chunks: int = -1,
+        streaming_right_context: int = 0,
+        streaming_causal_conv: bool = False,
     ):
         super().__init__()
+        self.streaming_chunk_size = int(streaming_chunk_size)
+        self.streaming_left_context_chunks = int(streaming_left_context_chunks)
+        self.streaming_right_context = int(streaming_right_context)
+        self.streaming_causal_conv = bool(streaming_causal_conv)
         self.subsampling = ConvSubsampling(d_model, n_mels)
         self.layers = nn.ModuleList(
             [
@@ -90,15 +98,39 @@ class ConformerEncoder(nn.Module):
                     conv_kernel_size=conv_kernel_size,
                     conv_dropout=conv_dropout,
                     max_len=max_len,
+                    causal_conv=self.streaming_causal_conv,
                 )
                 for _ in range(num_layers)
             ]
         )
 
+    def _build_encoder_mask(self, output_lengths: torch.Tensor, T: int, device: torch.device) -> torch.Tensor:
+        """Return padding mask (B,T) or streaming attention mask (B,T,T)."""
+        pad_mask = torch.arange(T, device=device)[None, :] < output_lengths[:, None]
+
+        if self.streaming_chunk_size <= 0:
+            return pad_mask
+
+        idx = torch.arange(T, device=device)
+        q_idx = idx[:, None]
+        k_idx = idx[None, :]
+        allowed = k_idx <= (q_idx + max(0, self.streaming_right_context))
+
+        if self.streaming_left_context_chunks >= 0:
+            c = max(1, self.streaming_chunk_size)
+            q_chunk = q_idx // c
+            k_chunk = k_idx // c
+            min_chunk = q_chunk - self.streaming_left_context_chunks
+            allowed = allowed & (k_chunk >= min_chunk)
+
+        # Mask invalid query/key time steps per sample.
+        allowed = allowed[None, :, :]
+        return allowed & pad_mask[:, :, None] & pad_mask[:, None, :]
+
     def forward(self, mel: torch.Tensor, mel_lengths: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         x, output_lengths = self.subsampling(mel, mel_lengths)
         T = x.size(1)
-        mask = torch.arange(T, device=x.device)[None, :] < output_lengths[:, None]
+        mask = self._build_encoder_mask(output_lengths, T=T, device=x.device)
         for layer in self.layers:
             x = layer(x, mask=mask)
         return x, output_lengths
@@ -127,6 +159,10 @@ class ConformerASR(nn.Module):
         conv_kernel_size: int = 32,
         conv_dropout: float = 0.1,
         max_len: int = 2048,
+        streaming_chunk_size: int = 0,
+        streaming_left_context_chunks: int = -1,
+        streaming_right_context: int = 0,
+        streaming_causal_conv: bool = False,
     ):
         super().__init__()
         self.encoder = ConformerEncoder(
@@ -140,6 +176,10 @@ class ConformerASR(nn.Module):
             conv_kernel_size=conv_kernel_size,
             conv_dropout=conv_dropout,
             max_len=max_len,
+            streaming_chunk_size=streaming_chunk_size,
+            streaming_left_context_chunks=streaming_left_context_chunks,
+            streaming_right_context=streaming_right_context,
+            streaming_causal_conv=streaming_causal_conv,
         )
         self.ctc_head = nn.Linear(d_model, vocab_size)
 
@@ -257,6 +297,10 @@ class ConformerTransducer(nn.Module):
         pred_num_layers: int = 1,
         joint_dim: int = 640,
         blank_idx: int = 0,
+        streaming_chunk_size: int = 0,
+        streaming_left_context_chunks: int = -1,
+        streaming_right_context: int = 0,
+        streaming_causal_conv: bool = False,
     ):
         super().__init__()
         self.blank_idx = blank_idx
@@ -273,6 +317,10 @@ class ConformerTransducer(nn.Module):
             conv_kernel_size=conv_kernel_size,
             conv_dropout=conv_dropout,
             max_len=max_len,
+            streaming_chunk_size=streaming_chunk_size,
+            streaming_left_context_chunks=streaming_left_context_chunks,
+            streaming_right_context=streaming_right_context,
+            streaming_causal_conv=streaming_causal_conv,
         )
         self.predictor = PredictionNetwork(
             vocab_size=vocab_size,
