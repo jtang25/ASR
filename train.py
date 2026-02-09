@@ -159,6 +159,18 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--eval-lm-alpha", type=float, default=0.5)
     p.add_argument("--eval-lm-beta", type=float, default=1.0)
     p.add_argument("--eval-lm-beam-width", type=int, default=128)
+    p.add_argument(
+        "--rnnt-eval-decoder",
+        default="greedy",
+        choices=["greedy", "beam", "both"],
+        help=(
+            "RNN-T validation WER decoder. "
+            "'greedy' is fastest, 'beam' is higher quality, 'both' logs both and uses beam WER as primary."
+        ),
+    )
+    p.add_argument("--rnnt-eval-beam-size", type=int, default=8)
+    p.add_argument("--rnnt-eval-beam-topk", type=int, default=10)
+    p.add_argument("--rnnt-eval-max-symbols-per-step", type=int, default=10)
 
     p.add_argument("--num-workers", type=int, default=8)
     p.add_argument("--prefetch-factor", type=int, default=4)
@@ -214,6 +226,14 @@ def parse_args() -> argparse.Namespace:
         help="Save last.pt every N epochs (always on final epoch).",
     )
     p.add_argument("--resume-path", default=None)
+    p.add_argument(
+        "--init-encoder-from",
+        default=None,
+        help=(
+            "Path to checkpoint used to initialize only encoder weights. "
+            "Useful for CTC->RNN-T transfer. Ignored when full resume is used."
+        ),
+    )
     p.add_argument("--reset-scheduler-on-resume", action="store_true")
     p.add_argument("--override-lr-on-resume", action="store_true")
     p.add_argument("--auto-resume", action="store_true", default=True)
@@ -309,6 +329,48 @@ def _dist_barrier(device: torch.device):
         dist.barrier(device_ids=[dev_idx])
     else:
         dist.barrier()
+
+
+def _extract_encoder_state_dict(state_dict: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+    """Extract encoder.* parameters from a checkpoint state_dict."""
+    for prefix in ("encoder.", "module.encoder."):
+        enc_state = {k[len(prefix):]: v for k, v in state_dict.items() if k.startswith(prefix)}
+        if enc_state:
+            return enc_state
+    return {}
+
+
+def _init_encoder_from_checkpoint(
+    model_raw: nn.Module,
+    ckpt_path: str,
+    device: torch.device,
+    is_main: bool,
+) -> None:
+    if not os.path.exists(ckpt_path):
+        raise FileNotFoundError(f"Encoder init checkpoint not found: {ckpt_path}")
+    ckpt_obj = torch.load(ckpt_path, map_location=device, weights_only=False)
+    if isinstance(ckpt_obj, dict) and "model" in ckpt_obj and isinstance(ckpt_obj["model"], dict):
+        src_state = ckpt_obj["model"]
+    elif isinstance(ckpt_obj, dict):
+        src_state = ckpt_obj
+    else:
+        raise ValueError(f"Unsupported checkpoint format for encoder init: {ckpt_path}")
+
+    enc_state = _extract_encoder_state_dict(src_state)
+    if not enc_state:
+        raise ValueError(
+            f"No encoder.* weights found in checkpoint: {ckpt_path}. "
+            "Expected a CTC/RNN-T model checkpoint with encoder parameters."
+        )
+
+    missing, unexpected = model_raw.encoder.load_state_dict(enc_state, strict=False)
+    if is_main:
+        loaded = len(enc_state)
+        print(f"Initialized encoder from: {ckpt_path} | loaded_keys={loaded}")
+        if missing:
+            print(f"  [encoder-init] missing keys: {len(missing)}")
+        if unexpected:
+            print(f"  [encoder-init] unexpected keys: {len(unexpected)}")
 
 
 def _reduce_sum(val: float, device: torch.device, is_dist: bool) -> float:
@@ -474,10 +536,25 @@ def _compute_wer_ctc(
 
 def _compute_wer_rnnt(
     model, enc_out, enc_lengths, targets, target_lengths, tokenizer,
+    decoder: str = "greedy",
+    beam_size: int = 8,
+    beam_topk: int = 10,
+    max_symbols_per_step: int = 10,
 ) -> tuple[int, int]:
-    decoded = rnnt_greedy_decode(
-        model, enc_out, enc_lengths, blank_idx=model.blank_idx, max_symbols_per_step=10,
-    )
+    if decoder == "beam":
+        decoded = rnnt_beam_search(
+            model,
+            enc_out,
+            enc_lengths,
+            blank_idx=model.blank_idx,
+            beam_size=max(1, int(beam_size)),
+            max_symbols_per_step=max(1, int(max_symbols_per_step)),
+            top_k_tokens=max(1, int(beam_topk)),
+        )
+    else:
+        decoded = rnnt_greedy_decode(
+            model, enc_out, enc_lengths, blank_idx=model.blank_idx, max_symbols_per_step=max(1, int(max_symbols_per_step)),
+        )
     total_errors = 0
     total_words = 0
     for i, hyp_ids in enumerate(decoded):
@@ -527,6 +604,10 @@ def decode_eval_sample(
     mel_extractor: LogMelSpectrogram,
     beam_size: int = 10,
     token_prune: int | None = None,
+    rnnt_decoder: str = "greedy",
+    rnnt_beam_size: int = 8,
+    rnnt_beam_topk: int = 10,
+    rnnt_max_symbols_per_step: int = 10,
 ) -> tuple[str, str]:
     waveform, sample_rate = torchaudio.load(sample_path)
     if waveform.size(0) > 1:
@@ -553,9 +634,20 @@ def decode_eval_sample(
         hyp = tokenizer.decode(decoded[0]) if decoded else ""
     else:
         enc_out, enc_lengths = model.encode(mel.float(), mel_lengths)
-        decoded = rnnt_greedy_decode(
-            model, enc_out, enc_lengths, blank_idx=model.blank_idx, max_symbols_per_step=10,
-        )
+        if rnnt_decoder == "beam":
+            decoded = rnnt_beam_search(
+                model,
+                enc_out,
+                enc_lengths,
+                blank_idx=model.blank_idx,
+                beam_size=max(1, int(rnnt_beam_size)),
+                max_symbols_per_step=max(1, int(rnnt_max_symbols_per_step)),
+                top_k_tokens=max(1, int(rnnt_beam_topk)),
+            )
+        else:
+            decoded = rnnt_greedy_decode(
+                model, enc_out, enc_lengths, blank_idx=model.blank_idx, max_symbols_per_step=max(1, int(rnnt_max_symbols_per_step)),
+            )
         hyp = tokenizer.decode(decoded[0]) if decoded else ""
 
     ref = _read_librispeech_reference(sample_path)
@@ -756,11 +848,13 @@ def _rnnt_loss_chunked(
         raise RuntimeError("Empty batch passed to RNNT loss.")
 
     total = None
+    total_weight = 0
     for s, e, t_max, u_max in chunks:
         logits_chunk = logits[s:e, :t_max, :u_max, :].float()
         targets_chunk = targets[s:e, : max(0, u_max - 1)].int()
         logit_len_chunk = logit_lengths[s:e].clamp(min=1, max=t_max).int()
         target_len_chunk = target_lengths[s:e].clamp(min=0, max=max(0, u_max - 1)).int()
+        chunk_bs = int(e - s)
 
         if not fused_log_softmax:
             logits_chunk = torch.log_softmax(logits_chunk, dim=-1)
@@ -771,19 +865,21 @@ def _rnnt_loss_chunked(
             logit_len_chunk = logit_len_chunk.cpu()
             target_len_chunk = target_len_chunk.cpu()
 
-        chunk_sum = torchaudio.functional.rnnt_loss(
+        chunk_mean = torchaudio.functional.rnnt_loss(
             logits=logits_chunk,
             targets=targets_chunk,
             logit_lengths=logit_len_chunk,
             target_lengths=target_len_chunk,
             blank=blank_idx,
-            reduction="sum",
+            reduction="mean",
             fused_log_softmax=fused_log_softmax,
         )
-        total = chunk_sum if total is None else total + chunk_sum
+        weighted = chunk_mean * max(1, chunk_bs)
+        total = weighted if total is None else total + weighted
+        total_weight += chunk_bs
 
-    # torchaudio reduction='mean' is equivalent to sum / batch_size
-    loss = total / max(1, int(targets.size(0)))
+    # Preserve chunking invariance: weighted average over chunk means.
+    loss = total / max(1, total_weight)
     return loss, len(chunks)
 
 
@@ -973,8 +1069,12 @@ def evaluate(
     rnnt_fused_log_softmax: bool = False,
     rnnt_loss_device: str = "cuda",
     rnnt_max_batch_tu: int = 1_500_000,
+    rnnt_eval_decoder: str = "greedy",
+    rnnt_eval_beam_size: int = 8,
+    rnnt_eval_beam_topk: int = 10,
+    rnnt_eval_max_symbols_per_step: int = 10,
     is_distributed: bool = False,
-) -> tuple[float, float]:
+) -> tuple[float, float, float, float]:
     model.eval()
 
     if loss_type == "ctc":
@@ -983,8 +1083,14 @@ def evaluate(
     total_loss = 0.0
     total_errors = 0
     total_words = 0
+    total_errors_greedy = 0
+    total_words_greedy = 0
+    total_errors_beam = 0
+    total_words_beam = 0
     num_batches = 0
     amp_enabled = device.type == "cuda" and autocast_dtype is not None
+    want_greedy = loss_type == "rnnt" and rnnt_eval_decoder in ("greedy", "both")
+    want_beam = loss_type == "rnnt" and rnnt_eval_decoder in ("beam", "both")
 
     for mel, tokens, mel_lengths, token_lengths in loader:
         mel = mel.to(device, non_blocking=True)
@@ -1030,12 +1136,42 @@ def evaluate(
                         max_batch_tu=rnnt_max_batch_tu,
                     )
                     loss_val += float(loss_chunk.item()) * (float(chunk_bs) / float(batch_size))
-            # WER via greedy decode (fast)
             enc_out, enc_lens = model.encode(mel, mel_lengths)
             enc_lens = enc_lens.clamp(min=1)
-            errors, words = _compute_wer_rnnt(
-                model, enc_out, enc_lens, tokens, token_lengths, tokenizer,
-            )
+            errors_g = words_g = errors_b = words_b = 0
+            if want_greedy:
+                errors_g, words_g = _compute_wer_rnnt(
+                    model,
+                    enc_out,
+                    enc_lens,
+                    tokens,
+                    token_lengths,
+                    tokenizer,
+                    decoder="greedy",
+                    max_symbols_per_step=rnnt_eval_max_symbols_per_step,
+                )
+                total_errors_greedy += errors_g
+                total_words_greedy += words_g
+            if want_beam:
+                errors_b, words_b = _compute_wer_rnnt(
+                    model,
+                    enc_out,
+                    enc_lens,
+                    tokens,
+                    token_lengths,
+                    tokenizer,
+                    decoder="beam",
+                    beam_size=rnnt_eval_beam_size,
+                    beam_topk=rnnt_eval_beam_topk,
+                    max_symbols_per_step=rnnt_eval_max_symbols_per_step,
+                )
+                total_errors_beam += errors_b
+                total_words_beam += words_b
+            if rnnt_eval_decoder == "greedy":
+                errors, words = errors_g, words_g
+            else:
+                # beam or both: use beam WER as primary validation metric
+                errors, words = errors_b, words_b
             loss = torch.tensor(loss_val, device=device, dtype=torch.float32)
 
         total_loss += float(loss.item())
@@ -1045,7 +1181,16 @@ def evaluate(
 
     if is_distributed and dist.is_initialized():
         metrics = torch.tensor(
-            [total_loss, float(num_batches), float(total_errors), float(total_words)],
+            [
+                total_loss,
+                float(num_batches),
+                float(total_errors),
+                float(total_words),
+                float(total_errors_greedy),
+                float(total_words_greedy),
+                float(total_errors_beam),
+                float(total_words_beam),
+            ],
             device=device,
             dtype=torch.float64,
         )
@@ -1054,10 +1199,24 @@ def evaluate(
         num_batches = int(metrics[1].item())
         total_errors = int(metrics[2].item())
         total_words = int(metrics[3].item())
+        total_errors_greedy = int(metrics[4].item())
+        total_words_greedy = int(metrics[5].item())
+        total_errors_beam = int(metrics[6].item())
+        total_words_beam = int(metrics[7].item())
 
     avg_loss = total_loss / max(num_batches, 1)
     wer = total_errors / max(total_words, 1)
-    return avg_loss, wer
+    wer_greedy = (
+        total_errors_greedy / max(total_words_greedy, 1)
+        if want_greedy and total_words_greedy > 0
+        else float("nan")
+    )
+    wer_beam = (
+        total_errors_beam / max(total_words_beam, 1)
+        if want_beam and total_words_beam > 0
+        else float("nan")
+    )
+    return avg_loss, wer, wer_greedy, wer_beam
 
 
 # ===================================================================
@@ -1074,6 +1233,12 @@ def main() -> None:
         raise ValueError("--streaming-left-context-chunks must be >= -1")
     if args.streaming_right_context < 0:
         raise ValueError("--streaming-right-context must be >= 0")
+    if args.rnnt_eval_beam_size < 1:
+        raise ValueError("--rnnt-eval-beam-size must be >= 1")
+    if args.rnnt_eval_beam_topk < 1:
+        raise ValueError("--rnnt-eval-beam-topk must be >= 1")
+    if args.rnnt_eval_max_symbols_per_step < 1:
+        raise ValueError("--rnnt-eval-max-symbols-per-step must be >= 1")
     streaming_enabled = bool(args.streaming_mode or args.streaming_chunk_size > 0)
     if not streaming_enabled:
         args.streaming_chunk_size = 0
@@ -1252,6 +1417,29 @@ def main() -> None:
             n_params = sum(p.numel() for p in model_raw.parameters() if p.requires_grad)
             print(f"Model parameters: {n_params / 1e6:.1f}M")
 
+        resume_path = args.resume_path
+        if resume_path is None and args.auto_resume:
+            auto = os.path.join(args.ckpt_dir, "last.pt")
+            if os.path.exists(auto):
+                resume_path = auto
+                if is_main:
+                    print(f"Auto-resume: {resume_path}")
+
+        if args.init_encoder_from:
+            if resume_path:
+                if is_main:
+                    print(
+                        "Ignoring --init-encoder-from because full resume is active "
+                        f"(resume_path={resume_path})."
+                    )
+            else:
+                _init_encoder_from_checkpoint(
+                    model_raw=model_raw,
+                    ckpt_path=args.init_encoder_from,
+                    device=device,
+                    is_main=is_main,
+                )
+
         # ---- Optimizer ----
         opt_cls = torch.optim.Adam if args.optimizer == "adam" else torch.optim.AdamW
         base_opt_kwargs = {
@@ -1313,18 +1501,11 @@ def main() -> None:
         start_epoch = 0
         best_wer = float("inf")
 
-        resume_path = args.resume_path
-        if resume_path is None and args.auto_resume:
-            auto = os.path.join(args.ckpt_dir, "last.pt")
-            if os.path.exists(auto):
-                resume_path = auto
-                if is_main:
-                    print(f"Auto-resume: {resume_path}")
-
         if resume_path:
             if not os.path.exists(resume_path):
                 raise FileNotFoundError(f"Checkpoint not found: {resume_path}")
             ckpt = torch.load(resume_path, map_location=device, weights_only=False)
+            ckpt_cfg = ckpt.get("config", {}) or {}
             model_raw.load_state_dict(ckpt["model"])
             if "optimizer" in ckpt:
                 optimizer.load_state_dict(ckpt["optimizer"])
@@ -1340,6 +1521,43 @@ def main() -> None:
             start_epoch = int(ckpt.get("epoch", 0)) + 1
             best_wer = float(ckpt.get("best_wer", float("inf")))
             if is_main:
+                resume_warnings: list[str] = []
+                if not args.reset_scheduler_on_resume:
+                    old_warmup = ckpt_cfg.get("warmup_steps", None)
+                    if old_warmup is not None and int(old_warmup) != int(args.warmup_steps):
+                        resume_warnings.append(
+                            f"warmup_steps differs (ckpt={int(old_warmup)} vs cli={int(args.warmup_steps)})"
+                        )
+                    old_peak_factor = ckpt_cfg.get("paper_peak_factor", None)
+                    if old_peak_factor is not None and not math.isclose(
+                        float(old_peak_factor), float(args.paper_peak_factor), rel_tol=0.0, abs_tol=1e-12
+                    ):
+                        resume_warnings.append(
+                            f"paper_peak_factor differs (ckpt={float(old_peak_factor)} vs cli={float(args.paper_peak_factor)})"
+                        )
+                    old_sched = ckpt_cfg.get("lr_schedule", None)
+                    if old_sched is not None and str(old_sched) != str(args.lr_schedule):
+                        resume_warnings.append(
+                            f"lr_schedule differs (ckpt={old_sched!r} vs cli={args.lr_schedule!r})"
+                        )
+                if not args.override_lr_on_resume and args.lr_schedule == "cosine":
+                    opt_state = ckpt.get("optimizer", {})
+                    try:
+                        old_lr = float(opt_state.get("param_groups", [{}])[0].get("lr"))
+                    except Exception:
+                        old_lr = None
+                    if old_lr is not None and not math.isclose(old_lr, float(args.lr), rel_tol=0.0, abs_tol=1e-12):
+                        resume_warnings.append(
+                            f"optimizer lr differs (ckpt={old_lr:.3e} vs cli={float(args.lr):.3e})"
+                        )
+                if resume_warnings:
+                    print("[WARN] Resume checkpoint hyperparameters differ from CLI; current run will keep checkpoint state.")
+                    for item in resume_warnings:
+                        print(f"  - {item}")
+                    print(
+                        "  Use --reset-scheduler-on-resume to apply new LR schedule settings, "
+                        "and --override-lr-on-resume to force optimizer lr."
+                    )
                 print(f"Resumed: epoch {start_epoch+1}/{args.epochs} | "
                       f"best WER {best_wer:.2%} | step={scheduler.step_count}")
             if start_epoch >= args.epochs:
@@ -1377,6 +1595,12 @@ def main() -> None:
                 print(f"RNN-T fused log_softmax: {args.rnnt_fused_log_softmax}")
                 print(f"RNN-T loss device: {args.rnnt_loss_device}")
                 print(f"RNN-T max batch*T*U: {args.rnnt_max_batch_tu}")
+                print(
+                    "RNN-T eval decoder: "
+                    f"{args.rnnt_eval_decoder} "
+                    f"(beam_size={args.rnnt_eval_beam_size}, topk={args.rnnt_eval_beam_topk}, "
+                    f"max_symbols={args.rnnt_eval_max_symbols_per_step})"
+                )
             print(f"Effective batch: {args.batch_size} x {args.accum_steps} x {world_size} = "
                   f"{args.batch_size * args.accum_steps * world_size}")
             print()
@@ -1411,7 +1635,7 @@ def main() -> None:
             run_eval = ((epoch_idx + 1) % max(1, args.eval_every) == 0) or ((epoch_idx + 1) == args.epochs)
             if run_eval:
                 tp = args.beam_token_prune if args.beam_token_prune > 0 else None
-                val_loss, val_wer = evaluate(
+                val_loss, val_wer, val_wer_greedy, val_wer_beam = evaluate(
                     model_raw, val_loader, device,
                     loss_type=args.loss_type, tokenizer=tokenizer,
                     beam_size=args.beam_size, token_prune=tp,
@@ -1420,10 +1644,15 @@ def main() -> None:
                     rnnt_fused_log_softmax=args.rnnt_fused_log_softmax,
                     rnnt_loss_device=args.rnnt_loss_device,
                     rnnt_max_batch_tu=args.rnnt_max_batch_tu,
+                    rnnt_eval_decoder=args.rnnt_eval_decoder,
+                    rnnt_eval_beam_size=args.rnnt_eval_beam_size,
+                    rnnt_eval_beam_topk=args.rnnt_eval_beam_topk,
+                    rnnt_eval_max_symbols_per_step=args.rnnt_eval_max_symbols_per_step,
                     is_distributed=is_distributed,
                 )
             else:
                 val_loss, val_wer = float("nan"), float("nan")
+                val_wer_greedy, val_wer_beam = float("nan"), float("nan")
 
             elapsed = time.time() - t0
 
@@ -1431,6 +1660,11 @@ def main() -> None:
                 if run_eval and math.isfinite(val_wer):
                     print(f"\nEpoch {epoch_idx+1}: train_loss={train_loss:.4f} "
                           f"val_loss={val_loss:.4f} val_wer={val_wer:.2%} time={elapsed:.0f}s")
+                    if args.loss_type == "rnnt":
+                        if math.isfinite(val_wer_greedy):
+                            print(f"  val_wer_greedy={val_wer_greedy:.2%}")
+                        if math.isfinite(val_wer_beam):
+                            print(f"  val_wer_beam={val_wer_beam:.2%}")
                 else:
                     print(f"\nEpoch {epoch_idx+1}: train_loss={train_loss:.4f} "
                           f"eval=skipped time={elapsed:.0f}s")
@@ -1447,6 +1681,10 @@ def main() -> None:
                             mel_extractor=mel_extractor,
                             beam_size=args.beam_size,
                             token_prune=tp,
+                            rnnt_decoder=("beam" if args.rnnt_eval_decoder in ("beam", "both") else "greedy"),
+                            rnnt_beam_size=args.rnnt_eval_beam_size,
+                            rnnt_beam_topk=args.rnnt_eval_beam_topk,
+                            rnnt_max_symbols_per_step=args.rnnt_eval_max_symbols_per_step,
                         )
                         print("Sample decode:")
                         print(f"  file: {sample_decode_path}")
@@ -1507,8 +1745,21 @@ def main() -> None:
                         "lr_schedule": args.lr_schedule,
                         "paper_peak_factor": args.paper_peak_factor,
                         "warmup_steps": args.warmup_steps,
+                        "lr": args.lr,
+                        "min_lr": args.min_lr,
                         "weight_decay": args.weight_decay,
+                        "batch_size": args.batch_size,
+                        "accum_steps": args.accum_steps,
+                        "grad_clip": args.grad_clip,
                         "world_size": world_size,
+                        "rnnt_fused_log_softmax": args.rnnt_fused_log_softmax,
+                        "rnnt_loss_device": args.rnnt_loss_device,
+                        "rnnt_max_batch_tu": args.rnnt_max_batch_tu,
+                        "rnnt_eval_decoder": args.rnnt_eval_decoder,
+                        "rnnt_eval_beam_size": args.rnnt_eval_beam_size,
+                        "rnnt_eval_beam_topk": args.rnnt_eval_beam_topk,
+                        "rnnt_eval_max_symbols_per_step": args.rnnt_eval_max_symbols_per_step,
+                        "init_encoder_from": args.init_encoder_from,
                     },
                 }
                 should_save_last = (
