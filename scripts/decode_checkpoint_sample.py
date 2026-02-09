@@ -53,6 +53,15 @@ def parse_args() -> argparse.Namespace:
         default="auto",
         help="Device for decode.",
     )
+    p.add_argument(
+        "--rnnt-decoder",
+        choices=["greedy", "beam"],
+        default="greedy",
+        help="Decode method for RNNT checkpoints.",
+    )
+    p.add_argument("--rnnt-beam-size", type=int, default=8)
+    p.add_argument("--rnnt-beam-topk", type=int, default=10)
+    p.add_argument("--rnnt-max-symbols-per-step", type=int, default=10)
     return p.parse_args()
 
 
@@ -163,6 +172,10 @@ def main() -> None:
         mel_extractor=mel_extractor,
         beam_size=10,
         token_prune=None,
+        rnnt_decoder=args.rnnt_decoder,
+        rnnt_beam_size=args.rnnt_beam_size,
+        rnnt_beam_topk=args.rnnt_beam_topk,
+        rnnt_max_symbols_per_step=args.rnnt_max_symbols_per_step,
     )
 
     print(f"checkpoint: {ckpt_path}")

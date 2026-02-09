@@ -223,14 +223,14 @@ def rnnt_greedy_decode(
         pred_input = torch.tensor([[blank_idx]], device=device, dtype=torch.long)
         pred_out, state = model.predictor(pred_input, state)
         pred_vec = pred_out[0, 0]  # (D_pred,)
+        pred_proj = model.joint.project_pred_step(pred_vec.unsqueeze(0))  # (1, J)
 
         for t in range(T):
             enc_vec = enc_out[b, t]  # (D_enc,)
+            enc_proj = model.joint.project_enc_step(enc_vec.unsqueeze(0))  # (1, J)
 
             for _ in range(max_symbols_per_step):
-                logits = model.joint.forward_step(
-                    enc_vec.unsqueeze(0), pred_vec.unsqueeze(0)
-                )  # (1, V)
+                logits = model.joint.forward_projected_step(enc_proj, pred_proj)  # (1, V)
                 token_id = int(logits.argmax(dim=-1).item())
 
                 if token_id == blank_idx:
@@ -240,6 +240,7 @@ def rnnt_greedy_decode(
                 pred_input = torch.tensor([[token_id]], device=device, dtype=torch.long)
                 pred_out, state = model.predictor(pred_input, state)
                 pred_vec = pred_out[0, 0]
+                pred_proj = model.joint.project_pred_step(pred_vec.unsqueeze(0))
 
         results.append(hyp)
 
@@ -253,13 +254,21 @@ def rnnt_greedy_decode(
 class _Beam:
     """Internal beam hypothesis container."""
 
-    __slots__ = ("hyp", "score", "state", "pred_vec")
+    __slots__ = ("hyp", "score", "state", "pred_vec", "pred_proj")
 
-    def __init__(self, hyp: List[int], score: float, state, pred_vec: torch.Tensor):
+    def __init__(
+        self,
+        hyp: List[int],
+        score: float,
+        state,
+        pred_vec: torch.Tensor,
+        pred_proj: torch.Tensor,
+    ):
         self.hyp = hyp
         self.score = score
         self.state = state
         self.pred_vec = pred_vec
+        self.pred_proj = pred_proj
 
 
 def _clone_state(state):
@@ -311,11 +320,21 @@ def rnnt_beam_search(
         pred_input = torch.tensor([[blank_idx]], device=device, dtype=torch.long)
         pred_out, init_state = model.predictor(pred_input)
         init_pred_vec = pred_out[0, 0]
+        init_pred_proj = model.joint.project_pred_step(init_pred_vec.unsqueeze(0))
 
-        beams = [_Beam(hyp=[], score=0.0, state=init_state, pred_vec=init_pred_vec)]
+        beams = [
+            _Beam(
+                hyp=[],
+                score=0.0,
+                state=init_state,
+                pred_vec=init_pred_vec,
+                pred_proj=init_pred_proj,
+            )
+        ]
 
         for t in range(T):
             enc_vec = enc_out[b, t]  # (D_enc,)
+            enc_proj = model.joint.project_enc_step(enc_vec.unsqueeze(0))
 
             # Beams that already emitted blank for this step (done)
             finished_step: List[_Beam] = []
@@ -329,9 +348,7 @@ def rnnt_beam_search(
                 next_active: List[_Beam] = []
 
                 for beam in active:
-                    logits = model.joint.forward_step(
-                        enc_vec.unsqueeze(0), beam.pred_vec.unsqueeze(0)
-                    )  # (1, V)
+                    logits = model.joint.forward_projected_step(enc_proj, beam.pred_proj)  # (1, V)
                     log_probs = F.log_softmax(logits, dim=-1).squeeze(0)  # (V,)
 
                     # Blank transition: move to next time step
@@ -342,6 +359,7 @@ def rnnt_beam_search(
                             score=blank_score,
                             state=beam.state,
                             pred_vec=beam.pred_vec,
+                            pred_proj=beam.pred_proj,
                         )
                     )
 
@@ -371,6 +389,7 @@ def rnnt_beam_search(
                         pred_input = torch.tensor([[token_id]], device=device, dtype=torch.long)
                         pred_out, new_state = model.predictor(pred_input, new_state)
                         new_pred_vec = pred_out[0, 0]
+                        new_pred_proj = model.joint.project_pred_step(new_pred_vec.unsqueeze(0))
 
                         next_active.append(
                             _Beam(
@@ -378,6 +397,7 @@ def rnnt_beam_search(
                                 score=new_score,
                                 state=new_state,
                                 pred_vec=new_pred_vec,
+                                pred_proj=new_pred_proj,
                             )
                         )
 
@@ -390,7 +410,7 @@ def rnnt_beam_search(
             all_candidates.sort(key=lambda x: x.score, reverse=True)
             beams = all_candidates[:beam_size]
 
-        best = beams[0] if beams else _Beam([], 0.0, None, init_pred_vec)
+        best = beams[0] if beams else _Beam([], 0.0, None, init_pred_vec, init_pred_proj)
         all_results.append(best.hyp)
 
     return all_results

@@ -255,6 +255,22 @@ class JointNetwork(nn.Module):
         pred = self.pred_proj(pred_out).unsqueeze(1)  # (B, 1, U+1, J)
         return self.out_proj(torch.tanh(enc + pred))  # (B, T, U+1, V)
 
+    def project_enc_step(self, enc_step: torch.Tensor) -> torch.Tensor:
+        """Project one encoder step: (B, D_enc) -> (B, J)."""
+        return self.enc_proj(enc_step)
+
+    def project_pred_step(self, pred_step: torch.Tensor) -> torch.Tensor:
+        """Project one predictor step: (B, D_pred) -> (B, J)."""
+        return self.pred_proj(pred_step)
+
+    def forward_projected_step(
+        self,
+        enc_proj_step: torch.Tensor,
+        pred_proj_step: torch.Tensor,
+    ) -> torch.Tensor:
+        """Decode-time joint from preprojected vectors."""
+        return self.out_proj(torch.tanh(enc_proj_step + pred_proj_step))
+
     def forward_step(self, enc_step: torch.Tensor, pred_step: torch.Tensor) -> torch.Tensor:
         """Single-step joint for decoding.
 
@@ -264,9 +280,9 @@ class JointNetwork(nn.Module):
         Returns:
             logits: (B, V)
         """
-        enc = self.enc_proj(enc_step)
-        pred = self.pred_proj(pred_step)
-        return self.out_proj(torch.tanh(enc + pred))
+        enc = self.project_enc_step(enc_step)
+        pred = self.project_pred_step(pred_step)
+        return self.forward_projected_step(enc, pred)
 
 
 # ---------------------------------------------------------------------------

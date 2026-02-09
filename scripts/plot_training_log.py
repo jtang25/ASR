@@ -64,7 +64,7 @@ def parse_log(log_path: Path):
     return train_rows, summary_rows
 
 
-def make_plot(log_path: Path, out_path: Path, smooth_window: int) -> None:
+def make_plot(log_path: Path, out_path: Path, smooth_window: int, log_loss: bool) -> None:
     try:
         import matplotlib.pyplot as plt
     except ImportError as exc:
@@ -116,12 +116,16 @@ def make_plot(log_path: Path, out_path: Path, smooth_window: int) -> None:
     ax[0, 0].set_title("Training Loss vs Global Step")
     ax[0, 0].set_xlabel("global_step")
     ax[0, 0].set_ylabel("loss")
+    if log_loss:
+        ax[0, 0].set_yscale("log", nonpositive="clip")
     ax[0, 0].grid(alpha=0.3)
     ax[0, 0].legend()
 
     ax[0, 1].set_title("Epoch Summary Loss")
     ax[0, 1].set_xlabel("epoch")
     ax[0, 1].set_ylabel("loss")
+    if log_loss:
+        ax[0, 1].set_yscale("log", nonpositive="clip")
     ax[0, 1].grid(alpha=0.3)
     ax[0, 1].legend()
 
@@ -174,6 +178,11 @@ def main() -> None:
         default=100,
         help="Moving-average window for train_step_loss.",
     )
+    parser.add_argument(
+        "--log-loss",
+        action="store_true",
+        help="Plot loss y-axes on log scale.",
+    )
     args = parser.parse_args()
 
     if args.smooth_window <= 0:
@@ -184,7 +193,12 @@ def main() -> None:
         raise FileNotFoundError(f"Log file not found: {log_path}")
 
     out_path = args.out if args.out is not None else log_path.with_name("training_log_plot.png")
-    make_plot(log_path=log_path, out_path=out_path, smooth_window=args.smooth_window)
+    make_plot(
+        log_path=log_path,
+        out_path=out_path,
+        smooth_window=args.smooth_window,
+        log_loss=args.log_loss,
+    )
 
 
 if __name__ == "__main__":
