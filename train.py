@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import datetime
 import math
 import os
 import random
@@ -63,7 +64,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--val-split", default="dev-other")
 
     # Tokenizer
-    p.add_argument("--tokenizer", default="char", choices=["char", "sp"],
+    p.add_argument("--tokenizer", default="sp", choices=["char", "sp"],
                    help="char = 29-token character vocab, sp = SentencePiece.")
     p.add_argument("--sp-model", default="./tokenizer/sp_1k.model",
                    help="Path to trained SentencePiece .model file.")
@@ -76,6 +77,43 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--n-mels", type=int, default=80)
     p.add_argument("--conv-kernel", type=int, default=32)
     p.add_argument("--max-len", type=int, default=2048)
+    p.add_argument(
+        "--streaming-mode",
+        action="store_true",
+        help=(
+            "Enable streaming-friendly encoder masking. "
+            "Uses chunked left-context attention and optional right context."
+        ),
+    )
+    p.add_argument(
+        "--streaming-chunk-size",
+        type=int,
+        default=0,
+        help="Chunk size in encoder time steps after subsampling (0 disables streaming mask).",
+    )
+    p.add_argument(
+        "--streaming-left-context-chunks",
+        type=int,
+        default=-1,
+        help="How many previous chunks each chunk can attend to (-1 = unlimited).",
+    )
+    p.add_argument(
+        "--streaming-right-context",
+        type=int,
+        default=0,
+        help="Per-frame lookahead in encoder steps for streaming attention.",
+    )
+    p.add_argument(
+        "--streaming-causal-conv",
+        action="store_true",
+        help="Use causal depthwise convolution in Conformer conv modules.",
+    )
+    p.add_argument(
+        "--no-streaming-causal-conv",
+        action="store_false",
+        dest="streaming_causal_conv",
+    )
+    p.set_defaults(streaming_causal_conv=False)
 
     # RNN-T decoder
     p.add_argument("--pred-embed-dim", type=int, default=256)
@@ -88,6 +126,16 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--batch-size", type=int, default=32,
                    help="Per-GPU batch size. Paper uses effective ~256 across TPU pods.")
     p.add_argument("--accum-steps", type=int, default=4)
+    p.add_argument("--optimizer", default="adam", choices=["adam", "adamw"])
+    p.add_argument("--fused-optimizer", action="store_true", default=True)
+    p.add_argument("--no-fused-optimizer", action="store_false", dest="fused_optimizer")
+    p.add_argument("--precision", default="bf16", choices=["fp32", "fp16", "bf16"])
+    p.add_argument("--tf32", action="store_true", default=True,
+                   help="Enable TensorFloat-32 matmul/convolution on CUDA for throughput.")
+    p.add_argument("--no-tf32", action="store_false", dest="tf32")
+    p.add_argument("--compile", action="store_true", default=False)
+    p.add_argument("--compile-mode", default="max-autotune-no-cudagraphs",
+                   choices=["default", "reduce-overhead", "max-autotune", "max-autotune-no-cudagraphs"])
 
     # LR schedule
     p.add_argument("--lr-schedule", default="paper", choices=["paper", "cosine"])
@@ -113,8 +161,15 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--eval-lm-beam-width", type=int, default=128)
 
     p.add_argument("--num-workers", type=int, default=8)
+    p.add_argument("--prefetch-factor", type=int, default=4)
+    p.add_argument("--pin-memory", action="store_true", default=True)
+    p.add_argument("--no-pin-memory", action="store_false", dest="pin_memory")
+    p.add_argument("--persistent-workers", action="store_true", default=True)
+    p.add_argument("--no-persistent-workers", action="store_false", dest="persistent_workers")
     p.add_argument("--eval-sample-decode", action="store_true", default=True)
     p.add_argument("--no-eval-sample-decode", action="store_false", dest="eval_sample_decode")
+    p.add_argument("--eval-every", type=int, default=1,
+                   help="Run full validation every N epochs (1 = every epoch).")
     p.add_argument(
         "--eval-sample-path",
         default=None,
@@ -152,6 +207,12 @@ def parse_args() -> argparse.Namespace:
     # Checkpointing
     p.add_argument("--ckpt-dir", default="./checkpoints")
     p.add_argument("--log-csv", default=None)
+    p.add_argument(
+        "--save-every",
+        type=int,
+        default=1,
+        help="Save last.pt every N epochs (always on final epoch).",
+    )
     p.add_argument("--resume-path", default=None)
     p.add_argument("--reset-scheduler-on-resume", action="store_true")
     p.add_argument("--override-lr-on-resume", action="store_true")
@@ -162,6 +223,36 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--download", action="store_true", default=True)
     p.add_argument("--no-download", action="store_false", dest="download")
     p.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto")
+    p.add_argument("--sync-bn", action="store_true", default=False,
+                   help="Enable SyncBatchNorm in distributed training (slower).")
+    p.add_argument("--ddp-bucket-cap-mb", type=int, default=100)
+    p.add_argument("--ddp-grad-as-bucket-view", action="store_true", default=True)
+    p.add_argument("--no-ddp-grad-as-bucket-view", action="store_false", dest="ddp_grad_as_bucket_view")
+    p.add_argument(
+        "--ddp-timeout-sec",
+        type=int,
+        default=300,
+        help=(
+            "Distributed collective timeout in seconds. Lower values fail faster on hangs "
+            "to reduce wasted GPU time."
+        ),
+    )
+    p.add_argument(
+        "--ddp-broadcast-buffers",
+        action="store_true",
+        default=False,
+        help=(
+            "Broadcast module buffers (e.g., BatchNorm running stats) from rank 0 before "
+            "forward. Disabled by default to avoid syncing large static buffers every step."
+        ),
+    )
+    p.add_argument(
+        "--no-ddp-broadcast-buffers",
+        action="store_false",
+        dest="ddp_broadcast_buffers",
+    )
+    p.add_argument("--paper-strict", action="store_true",
+                   help="Fail fast if key hyperparameters deviate from Conformer Transducer Large paper defaults.")
 
     return p.parse_args()
 
@@ -180,7 +271,7 @@ def _resolve_device(arg: str) -> torch.device:
     return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-def _init_distributed(arg: str):
+def _init_distributed(arg: str, timeout_sec: int = 300):
     world_size = int(os.environ.get("WORLD_SIZE", "1"))
     rank = int(os.environ.get("RANK", "0"))
     local_rank = int(os.environ.get("LOCAL_RANK", "0"))
@@ -196,13 +287,28 @@ def _init_distributed(arg: str):
         device = torch.device("cpu")
         backend = "gloo"
     if not dist.is_initialized():
-        dist.init_process_group(backend=backend, init_method="env://")
+        timeout = datetime.timedelta(seconds=max(1, int(timeout_sec)))
+        dist.init_process_group(
+            backend=backend,
+            init_method="env://",
+            timeout=timeout,
+        )
     return True, rank, local_rank, world_size, device
 
 
 def _cleanup(is_dist: bool):
     if is_dist and dist.is_initialized():
         dist.destroy_process_group()
+
+
+def _dist_barrier(device: torch.device):
+    if not dist.is_initialized():
+        return
+    if device.type == "cuda":
+        dev_idx = device.index if device.index is not None else torch.cuda.current_device()
+        dist.barrier(device_ids=[dev_idx])
+    else:
+        dist.barrier()
 
 
 def _reduce_sum(val: float, device: torch.device, is_dist: bool) -> float:
@@ -218,6 +324,84 @@ def _set_seed(seed: int):
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
+
+
+def _autocast_dtype(precision: str) -> torch.dtype | None:
+    if precision == "fp16":
+        return torch.float16
+    if precision == "bf16":
+        return torch.bfloat16
+    return None
+
+
+def _configure_runtime(args: argparse.Namespace, device: torch.device, is_main: bool):
+    if device.type != "cuda":
+        return
+    torch.backends.cudnn.benchmark = True
+    torch.backends.cuda.matmul.allow_tf32 = bool(args.tf32)
+    torch.backends.cudnn.allow_tf32 = bool(args.tf32)
+    if args.precision in ("fp16", "bf16") or args.tf32:
+        torch.set_float32_matmul_precision("high")
+    if is_main:
+        print(f"Runtime: precision={args.precision} tf32={args.tf32} cudnn_benchmark={torch.backends.cudnn.benchmark}")
+
+
+def _paper_fidelity_mismatches(args: argparse.Namespace, vocab_size: int | None = None) -> list[str]:
+    mismatches: list[str] = []
+    streaming_enabled = bool(getattr(args, "streaming_mode", False) or int(getattr(args, "streaming_chunk_size", 0)) > 0)
+    if streaming_enabled:
+        mismatches.append("streaming_mode=True (expected False for paper baseline)")
+
+    expected_str = {
+        "loss_type": "rnnt",
+        "tokenizer": "sp",
+        "optimizer": "adam",
+        "lr_schedule": "paper",
+        "precision": "bf16",
+    }
+    for key, expected in expected_str.items():
+        actual = getattr(args, key)
+        if actual != expected:
+            mismatches.append(f"{key}={actual!r} (expected {expected!r})")
+
+    expected_int = {
+        "d_model": 512,
+        "num_heads": 8,
+        "num_layers": 17,
+        "conv_kernel": 32,
+        "n_mels": 80,
+        "pred_hidden_dim": 640,
+        "pred_num_layers": 1,
+        "joint_dim": 640,
+        "warmup_steps": 10_000,
+    }
+    for key, expected in expected_int.items():
+        actual = int(getattr(args, key))
+        if actual != expected:
+            mismatches.append(f"{key}={actual} (expected {expected})")
+
+    expected_float = {
+        "dropout": 0.1,
+        "variational_noise": 0.075,
+        "weight_decay": 1e-6,
+        "paper_peak_factor": 0.05,
+    }
+    for key, expected in expected_float.items():
+        actual = float(getattr(args, key))
+        if not math.isclose(actual, expected, rel_tol=0.0, abs_tol=1e-12):
+            mismatches.append(f"{key}={actual} (expected {expected})")
+
+    expected_splits = ["train-clean-100", "train-clean-360", "train-other-500"]
+    if list(args.train_splits) != expected_splits:
+        mismatches.append(f"train_splits={args.train_splits!r} (expected {expected_splits!r})")
+
+    if args.rnnt_loss_device != "cuda":
+        mismatches.append(f"rnnt_loss_device={args.rnnt_loss_device!r} (expected 'cuda')")
+
+    if vocab_size is not None and int(vocab_size) != 1024:
+        mismatches.append(f"vocab_size={vocab_size} (expected 1024 incl blank)")
+
+    return mismatches
 
 
 # ===================================================================
@@ -623,6 +807,7 @@ def train_one_epoch(
     var_noise_std: float = 0.0,
     is_distributed: bool = False,
     is_main: bool = True,
+    autocast_dtype: torch.dtype | None = None,
     rnnt_fused_log_softmax: bool = False,
     rnnt_loss_device: str = "cuda",
     rnnt_max_batch_tu: int = 1_500_000,
@@ -656,22 +841,23 @@ def train_one_epoch(
         is_last = (step + 1) == loader_len
         should_step = ((step + 1) % accum_steps == 0) or is_last
 
-        sync_ctx = nullcontext()
-        if is_distributed and isinstance(model, DDP) and not should_step:
-            sync_ctx = model.no_sync()
-
         # Apply variational noise before forward pass
         noise_dict = apply_variational_noise(raw_model, var_noise_std)
 
+        amp_enabled = device.type == "cuda" and autocast_dtype is not None
         use_scaler = (
-            device.type == "cuda"
+            scaler.is_enabled()
             and not (loss_type == "rnnt" and rnnt_loss_device == "cpu")
         )
         raw_loss = 0.0
 
-        with sync_ctx:
-            if loss_type == "ctc":
-                with autocast(device_type=device.type, enabled=(device.type == "cuda")):
+        if loss_type == "ctc":
+            sync_ctx = nullcontext()
+            if is_distributed and isinstance(model, DDP) and not should_step:
+                sync_ctx = model.no_sync()
+
+            with sync_ctx:
+                with autocast(device_type=device.type, dtype=autocast_dtype, enabled=amp_enabled):
                     log_probs, output_lengths = model(mel, mel_lengths)
                     log_probs_t = log_probs.transpose(0, 1)  # (T, B, V)
                     output_lengths = output_lengths.clamp(min=1)
@@ -682,18 +868,29 @@ def train_one_epoch(
                         scaler.scale(loss).backward()
                     else:
                         loss.backward()
-            else:
-                # Keep RNNT forward/loss in FP32 to avoid CUDA kernel instability on some setups.
-                with autocast(device_type=device.type, enabled=False):
-                    est_enc_lengths = raw_model.encoder.get_output_lengths(mel_lengths).clamp(min=1).int()
-                    batch_chunks = _build_rnnt_chunks(est_enc_lengths, token_lengths, rnnt_max_batch_tu)
-                    batch_size = max(1, int(tokens.size(0)))
+        else:
+            # Keep rnnt_loss in FP32 but allow autocast in model forward for throughput.
+            rnnt_amp = amp_enabled and rnnt_loss_device == "cuda"
+            est_enc_lengths = raw_model.encoder.get_output_lengths(mel_lengths).clamp(min=1).int()
+            batch_chunks = _build_rnnt_chunks(est_enc_lengths, token_lengths, rnnt_max_batch_tu)
+            if not batch_chunks:
+                raise RuntimeError("RNNT chunking produced no chunks for a non-empty batch.")
+            batch_size = max(1, int(tokens.size(0)))
+            n_batch_chunks = len(batch_chunks)
 
-                    # Forward/backward per chunk avoids allocating a huge (B,T,U,V) logits tensor.
-                    for s, e, _t_max, _u_max in batch_chunks:
+            # Important for DDP: even if chunk counts differ by rank, only one chunk per outer
+            # batch performs synchronized backward when `should_step` is True.
+            for chunk_idx, (s, e, _t_max, _u_max) in enumerate(batch_chunks):
+                do_sync_chunk = should_step and (chunk_idx == (n_batch_chunks - 1))
+                chunk_sync_ctx = nullcontext()
+                if is_distributed and isinstance(model, DDP) and not do_sync_chunk:
+                    chunk_sync_ctx = model.no_sync()
+
+                with chunk_sync_ctx:
+                    with autocast(device_type=device.type, dtype=autocast_dtype, enabled=rnnt_amp):
                         chunk_bs = e - s
                         logits, enc_lengths = model(
-                            mel[s:e].float(),
+                            mel[s:e],
                             mel_lengths[s:e],
                             tokens[s:e],
                             token_lengths[s:e],
@@ -709,14 +906,15 @@ def train_one_epoch(
                             loss_device=rnnt_loss_device,
                             max_batch_tu=rnnt_max_batch_tu,
                         )
-                        rnnt_chunk_count += n_chunks
-                        weighted_loss = loss_chunk * (float(chunk_bs) / float(batch_size))
-                        raw_loss += float(weighted_loss.detach().item())
-                        loss_for_backward = weighted_loss / accum_steps
-                        if use_scaler:
-                            scaler.scale(loss_for_backward).backward()
-                        else:
-                            loss_for_backward.backward()
+
+                    rnnt_chunk_count += n_chunks
+                    weighted_loss = loss_chunk * (float(chunk_bs) / float(batch_size))
+                    raw_loss += float(weighted_loss.detach().item())
+                    loss_for_backward = weighted_loss / accum_steps
+                    if use_scaler:
+                        scaler.scale(loss_for_backward).backward()
+                    else:
+                        loss_for_backward.backward()
 
         # Remove variational noise after backward
         remove_variational_noise(raw_model, noise_dict)
@@ -771,9 +969,11 @@ def evaluate(
     token_prune: int | None = None,
     lm_decoder=None,
     lm_beam_width: int = 100,
+    autocast_dtype: torch.dtype | None = None,
     rnnt_fused_log_softmax: bool = False,
     rnnt_loss_device: str = "cuda",
     rnnt_max_batch_tu: int = 1_500_000,
+    is_distributed: bool = False,
 ) -> tuple[float, float]:
     model.eval()
 
@@ -784,6 +984,7 @@ def evaluate(
     total_errors = 0
     total_words = 0
     num_batches = 0
+    amp_enabled = device.type == "cuda" and autocast_dtype is not None
 
     for mel, tokens, mel_lengths, token_lengths in loader:
         mel = mel.to(device, non_blocking=True)
@@ -792,7 +993,8 @@ def evaluate(
         token_lengths = token_lengths.to(device, non_blocking=True)
 
         if loss_type == "ctc":
-            log_probs, output_lengths = model(mel, mel_lengths)
+            with autocast(device_type=device.type, dtype=autocast_dtype, enabled=amp_enabled):
+                log_probs, output_lengths = model(mel, mel_lengths)
             log_probs_t = log_probs.transpose(0, 1)
             output_lengths = output_lengths.clamp(min=1)
             loss = loss_fn(log_probs_t.float(), tokens, output_lengths, token_lengths)
@@ -802,30 +1004,32 @@ def evaluate(
             )
         else:
             # RNN-T
-            est_enc_lengths = model.encoder.get_output_lengths(mel_lengths).clamp(min=1).int()
-            batch_chunks = _build_rnnt_chunks(est_enc_lengths, token_lengths, rnnt_max_batch_tu)
-            batch_size = max(1, int(tokens.size(0)))
-            loss_val = 0.0
-            for s, e, _t_max, _u_max in batch_chunks:
-                chunk_bs = e - s
-                logits, enc_lengths = model(
-                    mel[s:e].float(),
-                    mel_lengths[s:e],
-                    tokens[s:e],
-                    token_lengths[s:e],
-                )
-                enc_lengths = enc_lengths.clamp(min=1).int()
-                loss_chunk, _ = _rnnt_loss_chunked(
-                    logits=logits,
-                    targets=tokens[s:e],
-                    logit_lengths=enc_lengths,
-                    target_lengths=token_lengths[s:e],
-                    blank_idx=BLANK_IDX,
-                    fused_log_softmax=rnnt_fused_log_softmax,
-                    loss_device=rnnt_loss_device,
-                    max_batch_tu=rnnt_max_batch_tu,
-                )
-                loss_val += float(loss_chunk.item()) * (float(chunk_bs) / float(batch_size))
+            rnnt_amp = amp_enabled and rnnt_loss_device == "cuda"
+            with autocast(device_type=device.type, dtype=autocast_dtype, enabled=rnnt_amp):
+                est_enc_lengths = model.encoder.get_output_lengths(mel_lengths).clamp(min=1).int()
+                batch_chunks = _build_rnnt_chunks(est_enc_lengths, token_lengths, rnnt_max_batch_tu)
+                batch_size = max(1, int(tokens.size(0)))
+                loss_val = 0.0
+                for s, e, _t_max, _u_max in batch_chunks:
+                    chunk_bs = e - s
+                    logits, enc_lengths = model(
+                        mel[s:e],
+                        mel_lengths[s:e],
+                        tokens[s:e],
+                        token_lengths[s:e],
+                    )
+                    enc_lengths = enc_lengths.clamp(min=1).int()
+                    loss_chunk, _ = _rnnt_loss_chunked(
+                        logits=logits,
+                        targets=tokens[s:e],
+                        logit_lengths=enc_lengths,
+                        target_lengths=token_lengths[s:e],
+                        blank_idx=BLANK_IDX,
+                        fused_log_softmax=rnnt_fused_log_softmax,
+                        loss_device=rnnt_loss_device,
+                        max_batch_tu=rnnt_max_batch_tu,
+                    )
+                    loss_val += float(loss_chunk.item()) * (float(chunk_bs) / float(batch_size))
             # WER via greedy decode (fast)
             enc_out, enc_lens = model.encode(mel, mel_lengths)
             enc_lens = enc_lens.clamp(min=1)
@@ -839,6 +1043,18 @@ def evaluate(
         total_words += words
         num_batches += 1
 
+    if is_distributed and dist.is_initialized():
+        metrics = torch.tensor(
+            [total_loss, float(num_batches), float(total_errors), float(total_words)],
+            device=device,
+            dtype=torch.float64,
+        )
+        dist.all_reduce(metrics, op=dist.ReduceOp.SUM)
+        total_loss = float(metrics[0].item())
+        num_batches = int(metrics[1].item())
+        total_errors = int(metrics[2].item())
+        total_words = int(metrics[3].item())
+
     avg_loss = total_loss / max(num_batches, 1)
     wer = total_errors / max(total_words, 1)
     return avg_loss, wer
@@ -850,9 +1066,27 @@ def evaluate(
 
 def main() -> None:
     args = parse_args()
-    is_distributed, rank, local_rank, world_size, device = _init_distributed(args.device)
+    if args.streaming_mode and args.streaming_chunk_size <= 0:
+        args.streaming_chunk_size = 8
+    if args.streaming_chunk_size < 0:
+        raise ValueError("--streaming-chunk-size must be >= 0")
+    if args.streaming_left_context_chunks < -1:
+        raise ValueError("--streaming-left-context-chunks must be >= -1")
+    if args.streaming_right_context < 0:
+        raise ValueError("--streaming-right-context must be >= 0")
+    streaming_enabled = bool(args.streaming_mode or args.streaming_chunk_size > 0)
+    if not streaming_enabled:
+        args.streaming_chunk_size = 0
+        args.streaming_left_context_chunks = -1
+        args.streaming_right_context = 0
+        args.streaming_causal_conv = False
+
+    is_distributed, rank, local_rank, world_size, device = _init_distributed(
+        args.device, timeout_sec=args.ddp_timeout_sec
+    )
     is_main = rank == 0
     _set_seed(args.seed + rank)
+    _configure_runtime(args, device, is_main)
 
     if args.loss_type == "rnnt" and not _RNNT_LOSS_AVAILABLE:
         raise RuntimeError(
@@ -876,6 +1110,18 @@ def main() -> None:
 
         vocab_size = tokenizer.vocab_size
 
+        paper_mismatches = _paper_fidelity_mismatches(args, vocab_size=vocab_size)
+        if args.paper_strict and paper_mismatches:
+            msg = "Paper-strict mode mismatch:\n  - " + "\n  - ".join(paper_mismatches)
+            raise ValueError(msg)
+        if is_main:
+            if paper_mismatches:
+                print("Paper fidelity: NOT exact")
+                for item in paper_mismatches:
+                    print(f"  - {item}")
+            else:
+                print("Paper fidelity: key hyperparameters match Conformer Transducer Large defaults.")
+
         if is_main:
             print(f"Device: {device}")
             print(f"Distributed: {'enabled' if is_distributed else 'disabled'}" +
@@ -889,7 +1135,11 @@ def main() -> None:
                 get_dataloader(
                     args.data_root, split, args.batch_size,
                     n_mels=args.n_mels, augment=True,
-                    num_workers=args.num_workers, download=dl_flag,
+                    num_workers=args.num_workers,
+                    prefetch_factor=args.prefetch_factor,
+                    pin_memory=args.pin_memory,
+                    persistent_workers=args.persistent_workers,
+                    download=dl_flag,
                     distributed=is_distributed, rank=rank, world_size=world_size,
                     return_sampler=True, tokenizer=tokenizer,
                 )
@@ -900,20 +1150,23 @@ def main() -> None:
             return loaders, samplers
 
         def _build_val(dl_flag):
-            if not is_main:
-                return None
             return get_dataloader(
                 args.data_root, args.val_split, args.batch_size,
                 n_mels=args.n_mels, augment=False,
-                num_workers=args.num_workers, download=dl_flag,
-                distributed=False, tokenizer=tokenizer,
+                num_workers=args.num_workers,
+                prefetch_factor=args.prefetch_factor,
+                pin_memory=args.pin_memory,
+                persistent_workers=args.persistent_workers,
+                download=dl_flag,
+                distributed=is_distributed, rank=rank, world_size=world_size,
+                tokenizer=tokenizer,
             )
 
         if is_distributed and args.download:
             if is_main:
                 train_loaders, train_samplers = _build_train(True)
                 val_loader = _build_val(True)
-            dist.barrier()
+            _dist_barrier(device)
             if not is_main:
                 train_loaders, train_samplers = _build_train(False)
                 val_loader = _build_val(False)
@@ -923,7 +1176,7 @@ def main() -> None:
 
         # LM decoder (CTC + LM only)
         eval_lm_decoder = None
-        if is_main and args.eval_lm_path and args.loss_type == "ctc":
+        if args.eval_lm_path and args.loss_type == "ctc":
             from tokenizer import CHAR_VOCAB
             eval_lm_decoder = build_lm_decoder(
                 vocab=CHAR_VOCAB, lm_path=args.eval_lm_path,
@@ -955,6 +1208,10 @@ def main() -> None:
                 conv_kernel_size=args.conv_kernel, max_len=args.max_len,
                 ffn_dropout=args.dropout, attn_dropout=args.dropout,
                 conv_dropout=args.dropout,
+                streaming_chunk_size=args.streaming_chunk_size,
+                streaming_left_context_chunks=args.streaming_left_context_chunks,
+                streaming_right_context=args.streaming_right_context,
+                streaming_causal_conv=args.streaming_causal_conv,
             ).to(device)
         else:
             model = ConformerTransducer(
@@ -969,13 +1226,24 @@ def main() -> None:
                 pred_num_layers=args.pred_num_layers,
                 joint_dim=args.joint_dim,
                 blank_idx=BLANK_IDX,
+                streaming_chunk_size=args.streaming_chunk_size,
+                streaming_left_context_chunks=args.streaming_left_context_chunks,
+                streaming_right_context=args.streaming_right_context,
+                streaming_causal_conv=args.streaming_causal_conv,
             ).to(device)
 
-        if is_distributed and device.type == "cuda":
+        if is_distributed and device.type == "cuda" and args.sync_bn:
             model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
+        if args.compile:
+            model = torch.compile(model, mode=args.compile_mode)
         if is_distributed:
-            ddp_kw = ({"device_ids": [local_rank], "output_device": local_rank}
-                      if device.type == "cuda" else {})
+            ddp_kw = {
+                "bucket_cap_mb": int(args.ddp_bucket_cap_mb),
+                "gradient_as_bucket_view": bool(args.ddp_grad_as_bucket_view),
+                "broadcast_buffers": bool(args.ddp_broadcast_buffers),
+            }
+            if device.type == "cuda":
+                ddp_kw.update({"device_ids": [local_rank], "output_device": local_rank})
             model = DDP(model, **ddp_kw)
 
         model_raw = model.module if isinstance(model, DDP) else model
@@ -985,10 +1253,44 @@ def main() -> None:
             print(f"Model parameters: {n_params / 1e6:.1f}M")
 
         # ---- Optimizer ----
-        optimizer = torch.optim.AdamW(
-            model.parameters(), lr=args.lr,
-            weight_decay=args.weight_decay, betas=(0.9, 0.98), eps=1e-9,
-        )
+        opt_cls = torch.optim.Adam if args.optimizer == "adam" else torch.optim.AdamW
+        base_opt_kwargs = {
+            "lr": args.lr,
+            "weight_decay": args.weight_decay,
+            "betas": (0.9, 0.98),
+            "eps": 1e-9,
+        }
+
+        optimizer = None
+        opt_candidates: list[dict] = [dict(base_opt_kwargs)]
+        if device.type == "cuda":
+            if args.fused_optimizer:
+                # fused and foreach cannot both be True in many torch builds.
+                opt_candidates = [
+                    {**base_opt_kwargs, "fused": True},
+                    {**base_opt_kwargs, "foreach": True},
+                    dict(base_opt_kwargs),
+                ]
+            else:
+                opt_candidates = [
+                    {**base_opt_kwargs, "foreach": True},
+                    dict(base_opt_kwargs),
+                ]
+
+        last_err: Exception | None = None
+        for candidate in opt_candidates:
+            try:
+                optimizer = opt_cls(model.parameters(), **candidate)
+                break
+            except (TypeError, RuntimeError, ValueError) as err:
+                last_err = err
+                continue
+
+        if optimizer is None:
+            raise RuntimeError(
+                f"Failed to initialize optimizer {args.optimizer} with supported kwargs. "
+                f"Last error: {last_err}"
+            )
 
         steps_per_epoch = math.ceil(train_len / max(1, args.accum_steps))
         total_steps = steps_per_epoch * args.epochs
@@ -1004,7 +1306,8 @@ def main() -> None:
                 total_steps=total_steps, peak_lr=args.lr, min_lr=args.min_lr,
             )
 
-        scaler = GradScaler(device=device.type, enabled=(device.type == "cuda"))
+        autocast_dtype = _autocast_dtype(args.precision)
+        scaler = GradScaler(device=device.type, enabled=(device.type == "cuda" and args.precision == "fp16"))
 
         # ---- Resume ----
         start_epoch = 0
@@ -1049,6 +1352,26 @@ def main() -> None:
             print(f"\nScheduler: {args.lr_schedule} | "
                   f"peak_lr={scheduler.lr_peak if hasattr(scheduler, 'lr_peak') else args.lr:.2e} | "
                   f"warmup={args.warmup_steps}")
+            print(f"Optimizer: {args.optimizer} | fused={args.fused_optimizer} | precision={args.precision}")
+            print(f"DataLoader: workers={args.num_workers} prefetch={args.prefetch_factor} "
+                  f"pin_memory={args.pin_memory} persistent_workers={args.persistent_workers}")
+            if streaming_enabled:
+                print(
+                    "Streaming encoder: "
+                    f"chunk={args.streaming_chunk_size} "
+                    f"left_chunks={args.streaming_left_context_chunks} "
+                    f"right={args.streaming_right_context} "
+                    f"causal_conv={args.streaming_causal_conv}"
+                )
+            else:
+                print("Streaming encoder: disabled")
+            print(f"Eval/checkpoint cadence: eval_every={args.eval_every} save_every={args.save_every}")
+            if is_distributed:
+                print(f"DDP: bucket_cap_mb={args.ddp_bucket_cap_mb} "
+                      f"timeout_sec={args.ddp_timeout_sec} "
+                      f"grad_as_bucket_view={args.ddp_grad_as_bucket_view} "
+                      f"broadcast_buffers={args.ddp_broadcast_buffers} sync_bn={args.sync_bn}")
+            print(f"torch.compile: {args.compile} ({args.compile_mode})")
             print(f"Variational noise: {args.variational_noise}")
             if args.loss_type == "rnnt":
                 print(f"RNN-T fused log_softmax: {args.rnnt_fused_log_softmax}")
@@ -1079,39 +1402,40 @@ def main() -> None:
                 global_step_offset=gs_offset, loss_type=args.loss_type,
                 var_noise_std=args.variational_noise,
                 is_distributed=is_distributed, is_main=is_main,
+                autocast_dtype=autocast_dtype,
                 rnnt_fused_log_softmax=args.rnnt_fused_log_softmax,
                 rnnt_loss_device=args.rnnt_loss_device,
                 rnnt_max_batch_tu=args.rnnt_max_batch_tu,
             )
 
-            if is_distributed:
-                dist.barrier()
-
-            if is_main:
+            run_eval = ((epoch_idx + 1) % max(1, args.eval_every) == 0) or ((epoch_idx + 1) == args.epochs)
+            if run_eval:
                 tp = args.beam_token_prune if args.beam_token_prune > 0 else None
                 val_loss, val_wer = evaluate(
                     model_raw, val_loader, device,
                     loss_type=args.loss_type, tokenizer=tokenizer,
                     beam_size=args.beam_size, token_prune=tp,
                     lm_decoder=eval_lm_decoder, lm_beam_width=args.eval_lm_beam_width,
+                    autocast_dtype=autocast_dtype,
                     rnnt_fused_log_softmax=args.rnnt_fused_log_softmax,
                     rnnt_loss_device=args.rnnt_loss_device,
                     rnnt_max_batch_tu=args.rnnt_max_batch_tu,
+                    is_distributed=is_distributed,
                 )
             else:
-                val_loss, val_wer = 0.0, 0.0
-
-            if is_distributed:
-                vm = torch.tensor([val_loss, val_wer], device=device, dtype=torch.float64)
-                dist.broadcast(vm, src=0)
-                val_loss, val_wer = float(vm[0]), float(vm[1])
+                val_loss, val_wer = float("nan"), float("nan")
 
             elapsed = time.time() - t0
 
             if is_main:
-                print(f"\nEpoch {epoch_idx+1}: train_loss={train_loss:.4f} "
-                      f"val_loss={val_loss:.4f} val_wer={val_wer:.2%} time={elapsed:.0f}s")
-                if sample_decode_path is not None:
+                if run_eval and math.isfinite(val_wer):
+                    print(f"\nEpoch {epoch_idx+1}: train_loss={train_loss:.4f} "
+                          f"val_loss={val_loss:.4f} val_wer={val_wer:.2%} time={elapsed:.0f}s")
+                else:
+                    print(f"\nEpoch {epoch_idx+1}: train_loss={train_loss:.4f} "
+                          f"eval=skipped time={elapsed:.0f}s")
+
+                if run_eval and sample_decode_path is not None:
                     try:
                         tp = args.beam_token_prune if args.beam_token_prune > 0 else None
                         ref_text, hyp_text = decode_eval_sample(
@@ -1132,6 +1456,7 @@ def main() -> None:
                     except Exception as e:
                         print(f"[WARN] Sample decode failed: {e}")
 
+                best_for_log = min(best_wer, val_wer) if (run_eval and math.isfinite(val_wer)) else best_wer
                 epoch_rows = step_rows + [{
                     "record_type": "epoch_summary", "epoch": epoch_idx + 1,
                     "step": num_batches, "global_step": gs_offset + num_batches,
@@ -1140,7 +1465,7 @@ def main() -> None:
                     "train_epoch_loss": train_loss,
                     "val_loss": val_loss, "val_wer": val_wer,
                     "lr": scheduler.get_lr(), "elapsed_sec": elapsed,
-                    "best_wer": min(best_wer, val_wer),
+                    "best_wer": best_for_log,
                 }]
                 append_csv_rows(log_csv, epoch_rows)
 
@@ -1152,7 +1477,7 @@ def main() -> None:
                     "scaler": scaler.state_dict(),
                     "step": scheduler.step_count,
                     "val_loss": val_loss, "val_wer": val_wer,
-                    "best_wer": min(best_wer, val_wer),
+                    "best_wer": best_for_log,
                     "config": {
                         "loss_type": args.loss_type,
                         "tokenizer": args.tokenizer,
@@ -1163,6 +1488,11 @@ def main() -> None:
                         "n_mels": args.n_mels,
                         "conv_kernel": args.conv_kernel,
                         "max_len": args.max_len,
+                        "streaming_mode": streaming_enabled,
+                        "streaming_chunk_size": args.streaming_chunk_size,
+                        "streaming_left_context_chunks": args.streaming_left_context_chunks,
+                        "streaming_right_context": args.streaming_right_context,
+                        "streaming_causal_conv": args.streaming_causal_conv,
                         "pred_embed_dim": args.pred_embed_dim,
                         "pred_hidden_dim": args.pred_hidden_dim,
                         "pred_num_layers": args.pred_num_layers,
@@ -1170,6 +1500,10 @@ def main() -> None:
                         "vocab_size": vocab_size,
                         "dropout": args.dropout,
                         "variational_noise": args.variational_noise,
+                        "optimizer": args.optimizer,
+                        "precision": args.precision,
+                        "tf32": args.tf32,
+                        "fused_optimizer": args.fused_optimizer,
                         "lr_schedule": args.lr_schedule,
                         "paper_peak_factor": args.paper_peak_factor,
                         "warmup_steps": args.warmup_steps,
@@ -1177,9 +1511,13 @@ def main() -> None:
                         "world_size": world_size,
                     },
                 }
-
-                torch.save(ckpt_data, os.path.join(args.ckpt_dir, "last.pt"))
-                if val_wer < best_wer:
+                should_save_last = (
+                    (epoch_idx + 1) == args.epochs
+                    or ((epoch_idx + 1) % max(1, args.save_every) == 0)
+                )
+                if should_save_last:
+                    torch.save(ckpt_data, os.path.join(args.ckpt_dir, "last.pt"))
+                if run_eval and math.isfinite(val_wer) and val_wer < best_wer:
                     best_wer = val_wer
                     torch.save(ckpt_data, os.path.join(args.ckpt_dir, "best.pt"))
                     print(f"  ** New best WER: {best_wer:.2%} **")
