@@ -14,7 +14,14 @@ def main() -> None:
     parser.add_argument(
         "--splits",
         nargs="+",
-        default=["train-clean-100", "train-clean-360", "train-other-500", "dev-other"],
+        default=[
+            "train-clean-100",
+            "train-clean-360",
+            "train-other-500",
+            "dev-other",
+            "test-clean",
+            "test-other",
+        ],
         help="LibriSpeech split names accepted by torchaudio.datasets.LIBRISPEECH(url=...).",
     )
     args = parser.parse_args()

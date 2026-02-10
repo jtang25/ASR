@@ -1,2 +1,5 @@
 env
-data/
+data/lm/4-gram.arpa
+lm/4-gram.lower.arpa
+lm/4-gram.lower.bin
+lm/4-gram.arpa.gz

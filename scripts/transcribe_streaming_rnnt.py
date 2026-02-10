@@ -373,7 +373,12 @@ def main() -> None:
 
     tokenizer = _load_tokenizer(cfg)
     model = _build_model_from_config(cfg, device)
-    model.load_state_dict(ckpt["model"])
+    missing, unexpected = model.load_state_dict(ckpt["model"], strict=False)
+    if missing or unexpected:
+        print(
+            f"[WARN] Checkpoint/model mismatch "
+            f"(missing={len(missing)}, unexpected={len(unexpected)})."
+        )
     model.eval()
     compiled = _maybe_compile_for_infer(model, args.compile)
 

@@ -64,7 +64,14 @@ def parse_log(log_path: Path):
     return train_rows, summary_rows
 
 
-def make_plot(log_path: Path, out_path: Path, smooth_window: int, log_loss: bool) -> None:
+def make_plot(
+    log_path: Path,
+    out_path: Path,
+    smooth_window: int,
+    log_loss: bool,
+    log_wer: bool,
+    log_x: bool,
+) -> None:
     try:
         import matplotlib.pyplot as plt
     except ImportError as exc:
@@ -116,6 +123,8 @@ def make_plot(log_path: Path, out_path: Path, smooth_window: int, log_loss: bool
     ax[0, 0].set_title("Training Loss vs Global Step")
     ax[0, 0].set_xlabel("global_step")
     ax[0, 0].set_ylabel("loss")
+    if log_x:
+        ax[0, 0].set_xscale("log", nonpositive="clip")
     if log_loss:
         ax[0, 0].set_yscale("log", nonpositive="clip")
     ax[0, 0].grid(alpha=0.3)
@@ -124,6 +133,8 @@ def make_plot(log_path: Path, out_path: Path, smooth_window: int, log_loss: bool
     ax[0, 1].set_title("Epoch Summary Loss")
     ax[0, 1].set_xlabel("epoch")
     ax[0, 1].set_ylabel("loss")
+    if log_x:
+        ax[0, 1].set_xscale("log", nonpositive="clip")
     if log_loss:
         ax[0, 1].set_yscale("log", nonpositive="clip")
     ax[0, 1].grid(alpha=0.3)
@@ -132,6 +143,10 @@ def make_plot(log_path: Path, out_path: Path, smooth_window: int, log_loss: bool
     ax[1, 0].set_title("Validation WER")
     ax[1, 0].set_xlabel("epoch")
     ax[1, 0].set_ylabel("WER")
+    if log_x:
+        ax[1, 0].set_xscale("log", nonpositive="clip")
+    if log_wer:
+        ax[1, 0].set_yscale("log", nonpositive="clip")
     ax[1, 0].grid(alpha=0.3)
     ax[1, 0].legend()
 
@@ -183,6 +198,16 @@ def main() -> None:
         action="store_true",
         help="Plot loss y-axes on log scale.",
     )
+    parser.add_argument(
+        "--log-wer",
+        action="store_true",
+        help="Plot WER y-axis on log scale.",
+    )
+    parser.add_argument(
+        "--log-x",
+        action="store_true",
+        help="Plot x-axis on log scale for training loss, epoch loss, and validation WER panels.",
+    )
     args = parser.parse_args()
 
     if args.smooth_window <= 0:
@@ -198,6 +223,8 @@ def main() -> None:
         out_path=out_path,
         smooth_window=args.smooth_window,
         log_loss=args.log_loss,
+        log_wer=args.log_wer,
+        log_x=args.log_x,
     )
 
 
