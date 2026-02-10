@@ -6,7 +6,8 @@ import torchaudio
 
 from decoding import beam_search_decode, build_lm_decoder, lm_beam_search_decode
 from model import ConformerASR
-from preprocessing import BLANK_IDX, VOCAB, VOCAB_SIZE, LogMelSpectrogram, tokens_to_text
+from preprocessing import LogMelSpectrogram
+from tokenizer import BLANK_IDX, CHAR_VOCAB_SIZE, CharTokenizer, SentencePieceTokenizer
 
 
 LOSSLESS_EXTENSIONS = {".wav", ".wave", ".flac"}
@@ -159,6 +160,24 @@ def _load_lossless_audio(audio_path_: str, sample_rate_: int = 16000) -> torch.T
     return waveform
 
 
+def _build_tokenizer(ckpt_args: dict):
+    tok_type = ckpt_args.get("tokenizer")
+    if tok_type is None:
+        vocab_guess = int(ckpt_args.get("vocab_size", CHAR_VOCAB_SIZE))
+        tok_type = "sp" if (vocab_guess > CHAR_VOCAB_SIZE and ckpt_args.get("sp_model")) else "char"
+
+    if tok_type == "sp":
+        sp_model = ckpt_args.get("sp_model")
+        if not sp_model:
+            raise ValueError("Checkpoint uses tokenizer='sp' but config has no sp_model path.")
+        return SentencePieceTokenizer(sp_model)
+    return CharTokenizer()
+
+
+def _ctc_decoder_vocab(tokenizer) -> list[str]:
+    return [str(tokenizer.id_to_piece(i)) for i in range(int(tokenizer.vocab_size))]
+
+
 @torch.no_grad()
 def _infer_with_chunking(
     model: ConformerASR,
@@ -220,12 +239,19 @@ def _infer_with_chunking(
     return merged, lengths, chunk_frames
 
 
-def _load_model(checkpoint: str, device: torch.device) -> tuple[ConformerASR, dict]:
+def _load_model(checkpoint: str, device: torch.device) -> tuple[ConformerASR, dict, object]:
     if not Path(checkpoint).exists():
         raise FileNotFoundError(f"Checkpoint not found: {checkpoint}")
 
     ckpt = torch.load(checkpoint, map_location=device, weights_only=False)
-    ckpt_args = ckpt.get("args", {}) or ckpt.get("config", {}) or {}
+    ckpt_args = ckpt.get("config", {}) or ckpt.get("args", {}) or {}
+    tokenizer = _build_tokenizer(ckpt_args)
+    cfg_vocab_size = int(ckpt_args.get("vocab_size", tokenizer.vocab_size))
+    if cfg_vocab_size != int(tokenizer.vocab_size):
+        raise ValueError(
+            f"Tokenizer vocab_size ({tokenizer.vocab_size}) does not match checkpoint config "
+            f"vocab_size ({cfg_vocab_size})."
+        )
     streaming_chunk_size = int(ckpt_args.get("streaming_chunk_size", 0))
     streaming_left_context_chunks = int(ckpt_args.get("streaming_left_context_chunks", -1))
     streaming_right_context = int(ckpt_args.get("streaming_right_context", 0))
@@ -236,8 +262,8 @@ def _load_model(checkpoint: str, device: torch.device) -> tuple[ConformerASR, di
         d_model=ckpt_args.get("d_model", 256),
         num_heads=ckpt_args.get("num_heads", 4),
         num_layers=ckpt_args.get("num_layers", 12),
-        vocab_size=VOCAB_SIZE,
-        conv_kernel_size=ckpt_args.get("conv_kernel", 31),
+        vocab_size=cfg_vocab_size,
+        conv_kernel_size=ckpt_args.get("conv_kernel", 32),
         max_len=ckpt_args.get("max_len", 2048),
         streaming_chunk_size=streaming_chunk_size,
         streaming_left_context_chunks=streaming_left_context_chunks,
@@ -245,9 +271,14 @@ def _load_model(checkpoint: str, device: torch.device) -> tuple[ConformerASR, di
         streaming_causal_conv=streaming_causal_conv,
     ).to(device)
 
-    model.load_state_dict(ckpt["model"])
+    missing, unexpected = model.load_state_dict(ckpt["model"], strict=False)
+    if missing or unexpected:
+        print(
+            f"[WARN] Checkpoint/model mismatch "
+            f"(missing={len(missing)}, unexpected={len(unexpected)})."
+        )
     model.eval()
-    return model, ckpt_args
+    return model, ckpt_args, tokenizer
 
 
 def main() -> None:
@@ -255,7 +286,7 @@ def main() -> None:
     _validate_args(args)
 
     device = _resolve_device(args.device)
-    model, ckpt_args = _load_model(args.checkpoint, device)
+    model, ckpt_args, tokenizer = _load_model(args.checkpoint, device)
 
     waveform = _load_lossless_audio(args.audio, sample_rate_=args.sample_rate)
 
@@ -264,7 +295,7 @@ def main() -> None:
         n_mels=ckpt_args.get("n_mels", 80),
     )
     mel = mel_extractor(waveform)
-    mel = (mel - mel.mean()) / (mel.std() + 1e-9)
+    mel = (mel - mel.mean(dim=0, keepdim=True)) / (mel.std(dim=0, keepdim=True) + 1e-9)
 
     max_len_after_subsampling = (
         args.max_seq_len if args.max_seq_len > 0 else ckpt_args.get("max_len", 2048)
@@ -281,7 +312,7 @@ def main() -> None:
     token_prune = args.beam_token_prune if args.beam_token_prune > 0 else None
     if args.lm_path:
         lm_decoder = build_lm_decoder(
-            vocab=VOCAB,
+            vocab=_ctc_decoder_vocab(tokenizer),
             lm_path=args.lm_path,
             blank_idx=BLANK_IDX,
             alpha=args.lm_alpha,
@@ -306,11 +337,12 @@ def main() -> None:
             blank_idx=BLANK_IDX,
             token_prune=token_prune,
         )
-        text = tokens_to_text(decoded[0])
+        text = tokenizer.decode(decoded[0])
         decode_mode = f"ctc-beam (beam_size={args.beam_size})"
 
     print(f"Device: {device}")
     print(f"Audio: {args.audio}")
+    print(f"Tokenizer: {ckpt_args.get('tokenizer', 'char')}")
     print(f"Decode mode: {decode_mode}")
     print(f"Mel frames: {mel.size(0)}")
     print(f"Chunk frames (max): {chunk_frames}")

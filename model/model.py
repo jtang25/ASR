@@ -255,6 +255,19 @@ class JointNetwork(nn.Module):
         pred = self.pred_proj(pred_out).unsqueeze(1)  # (B, 1, U+1, J)
         return self.out_proj(torch.tanh(enc + pred))  # (B, T, U+1, V)
 
+    def forward_pruned(self, enc_pruned: torch.Tensor, pred_pruned: torch.Tensor) -> torch.Tensor:
+        """Pruned joint for k2 pruned RNNT.
+
+        Args:
+            enc_pruned: (B, T, R, D_enc)
+            pred_pruned: (B, T, R, D_pred)
+        Returns:
+            logits: (B, T, R, V)
+        """
+        enc = self.enc_proj(enc_pruned)
+        pred = self.pred_proj(pred_pruned)
+        return self.out_proj(torch.tanh(enc + pred))
+
     def project_enc_step(self, enc_step: torch.Tensor) -> torch.Tensor:
         """Project one encoder step: (B, D_enc) -> (B, J)."""
         return self.enc_proj(enc_step)
@@ -350,6 +363,9 @@ class ConformerTransducer(nn.Module):
             joint_dim=joint_dim,
             vocab_size=vocab_size,
         )
+        # Auxiliary projections for k2 pruned-RNNT simple loss/range estimation.
+        self.simple_am_proj = nn.Linear(encoder_dim, vocab_size)
+        self.simple_lm_proj = nn.Linear(pred_hidden_dim, vocab_size)
 
     @property
     def subsampling(self):
@@ -361,7 +377,9 @@ class ConformerTransducer(nn.Module):
         mel_lengths: torch.Tensor,
         targets: torch.Tensor,
         target_lengths: torch.Tensor,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+        return_components: bool = False,
+        compute_logits: bool = True,
+    ) -> tuple[torch.Tensor, torch.Tensor] | tuple[torch.Tensor | None, torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Args:
             mel: (B, T, n_mels)
@@ -379,8 +397,11 @@ class ConformerTransducer(nn.Module):
         sos = targets.new_full((B, 1), self.blank_idx)
         pred_input = torch.cat([sos, targets], dim=1)  # (B, U_max + 1)
         pred_out, _ = self.predictor(pred_input)        # (B, U_max + 1, D_pred)
-
-        logits = self.joint(enc_out, pred_out)  # (B, T', U_max + 1, V)
+        logits = self.joint(enc_out, pred_out) if compute_logits else None
+        if return_components:
+            return logits, enc_lengths, enc_out, pred_out
+        if logits is None:
+            raise ValueError("compute_logits=False requires return_components=True.")
         return logits, enc_lengths
 
     def encode(self, mel: torch.Tensor, mel_lengths: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:

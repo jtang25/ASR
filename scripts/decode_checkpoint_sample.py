@@ -153,7 +153,12 @@ def main() -> None:
 
     tokenizer = load_tokenizer(cfg)
     model, loss_type = load_model(cfg, device)
-    model.load_state_dict(ckpt["model"])
+    missing, unexpected = model.load_state_dict(ckpt["model"], strict=False)
+    if missing or unexpected:
+        print(
+            f"[WARN] Checkpoint/model mismatch "
+            f"(missing={len(missing)}, unexpected={len(unexpected)})."
+        )
     model.eval()
 
     sample_path = args.sample_path or find_first_flac(args.data_root, args.split)

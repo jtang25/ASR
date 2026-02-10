@@ -38,6 +38,16 @@ try:
 except ImportError:
     _RNNT_LOSS_AVAILABLE = False
 
+try:
+    import k2
+    _K2_PRUNED_RNNT_AVAILABLE = all(
+        hasattr(k2, name)
+        for name in ("rnnt_loss_simple", "get_rnnt_prune_ranges", "do_rnnt_pruning", "rnnt_loss_pruned")
+    )
+except ImportError:
+    k2 = None
+    _K2_PRUNED_RNNT_AVAILABLE = False
+
 from decoding import (
     beam_search_decode,
     build_lm_decoder,
@@ -183,6 +193,15 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--eval-every", type=int, default=1,
                    help="Run full validation every N epochs (1 = every epoch).")
     p.add_argument(
+        "--early-stop-patience",
+        type=int,
+        default=0,
+        help=(
+            "Stop training early when validation WER does not improve for this many "
+            "consecutive evals (0 disables early stopping)."
+        ),
+    )
+    p.add_argument(
         "--eval-sample-path",
         default=None,
         help="Optional path to a .flac file for epoch-end sample decoding.",
@@ -213,6 +232,34 @@ def parse_args() -> argparse.Namespace:
             "Split RNNT loss computation into smaller chunks so (chunk_batch * max_T * max_U) "
             "stays under this limit. Set 0 to disable chunking."
         ),
+    )
+    p.add_argument(
+        "--rnnt-loss-impl",
+        default="torchaudio",
+        choices=["torchaudio", "k2_pruned"],
+        help=(
+            "RNNT loss backend. "
+            "'torchaudio' computes full T x U loss; "
+            "'k2_pruned' uses pruned RNNT (faster/lower memory when k2 is installed)."
+        ),
+    )
+    p.add_argument(
+        "--rnnt-prune-range",
+        type=int,
+        default=5,
+        help="k2 pruned RNNT: symbol-range width kept per encoder frame.",
+    )
+    p.add_argument(
+        "--rnnt-simple-loss-scale",
+        type=float,
+        default=0.5,
+        help="k2 pruned RNNT: scale for auxiliary rnnt_loss_simple term.",
+    )
+    p.add_argument(
+        "--rnnt-pruned-loss-scale",
+        type=float,
+        default=1.0,
+        help="k2 pruned RNNT: scale for rnnt_loss_pruned term.",
     )
     p.set_defaults(rnnt_fused_log_softmax=False)
 
@@ -373,6 +420,25 @@ def _init_encoder_from_checkpoint(
             print(f"  [encoder-init] unexpected keys: {len(unexpected)}")
 
 
+def _load_state_dict_flexible(
+    module: nn.Module,
+    state_dict: dict[str, torch.Tensor],
+    is_main: bool,
+    label: str = "checkpoint",
+) -> None:
+    """Load state dict with strict=False and log compact mismatch details."""
+    missing, unexpected = module.load_state_dict(state_dict, strict=False)
+    if is_main and (missing or unexpected):
+        print(
+            f"[WARN] {label}: state_dict mismatch "
+            f"(missing={len(missing)}, unexpected={len(unexpected)})."
+        )
+        if missing:
+            print(f"  missing (first 8): {missing[:8]}")
+        if unexpected:
+            print(f"  unexpected (first 8): {unexpected[:8]}")
+
+
 def _reduce_sum(val: float, device: torch.device, is_dist: bool) -> float:
     if not is_dist:
         return val
@@ -420,6 +486,7 @@ def _paper_fidelity_mismatches(args: argparse.Namespace, vocab_size: int | None 
         "optimizer": "adam",
         "lr_schedule": "paper",
         "precision": "bf16",
+        "rnnt_loss_impl": "torchaudio",
     }
     for key, expected in expected_str.items():
         actual = getattr(args, key)
@@ -464,6 +531,14 @@ def _paper_fidelity_mismatches(args: argparse.Namespace, vocab_size: int | None 
         mismatches.append(f"vocab_size={vocab_size} (expected 1024 incl blank)")
 
     return mismatches
+
+
+def _ctc_decoder_vocab(tokenizer) -> list[str]:
+    """Return decoder labels aligned with model token IDs."""
+    if not hasattr(tokenizer, "vocab_size") or not hasattr(tokenizer, "id_to_piece"):
+        raise ValueError("Tokenizer must provide vocab_size and id_to_piece() for CTC LM decoding.")
+    vocab_size = int(tokenizer.vocab_size)
+    return [str(tokenizer.id_to_piece(i)) for i in range(vocab_size)]
 
 
 # ===================================================================
@@ -883,6 +958,90 @@ def _rnnt_loss_chunked(
     return loss, len(chunks)
 
 
+def _build_rnnt_boundary(
+    logit_lengths: torch.Tensor,
+    target_lengths: torch.Tensor,
+) -> torch.Tensor:
+    """Build k2 RNNT boundary tensor: [begin_symbol, begin_frame, end_symbol, end_frame]."""
+    if logit_lengths.ndim != 1 or target_lengths.ndim != 1:
+        raise ValueError("Expected 1-D length tensors for RNNT boundary.")
+    if logit_lengths.size(0) != target_lengths.size(0):
+        raise ValueError("logit_lengths and target_lengths must have same batch size.")
+    bsz = int(logit_lengths.size(0))
+    boundary = torch.zeros((bsz, 4), dtype=torch.int64, device=logit_lengths.device)
+    boundary[:, 2] = target_lengths.to(dtype=torch.int64)
+    boundary[:, 3] = logit_lengths.to(dtype=torch.int64)
+    return boundary
+
+
+def _rnnt_loss_k2_pruned(
+    model_raw: nn.Module,
+    enc_out: torch.Tensor,
+    pred_out: torch.Tensor,
+    targets: torch.Tensor,
+    logit_lengths: torch.Tensor,
+    target_lengths: torch.Tensor,
+    blank_idx: int,
+    prune_range: int,
+    simple_loss_scale: float,
+    pruned_loss_scale: float,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Compute k2 pruned RNNT loss = simple_loss_scale*simple + pruned_loss_scale*pruned."""
+    if not _K2_PRUNED_RNNT_AVAILABLE:
+        raise RuntimeError(
+            "k2 pruned RNNT is not available. Install k2 with rnnt_loss_pruned support."
+        )
+
+    if prune_range < 1:
+        raise ValueError("--rnnt-prune-range must be >= 1 for k2_pruned.")
+
+    symbols = targets.to(dtype=torch.int32)
+    logit_lengths = logit_lengths.to(dtype=torch.int64).clamp(min=1)
+    target_lengths = target_lengths.to(dtype=torch.int64).clamp(min=0)
+    boundary = _build_rnnt_boundary(logit_lengths=logit_lengths, target_lengths=target_lengths)
+
+    enc_for_prune = enc_out.float()
+    pred_for_prune = pred_out.float()
+
+    simple_am = model_raw.simple_am_proj(enc_for_prune)
+    simple_lm = model_raw.simple_lm_proj(pred_for_prune)
+    simple_loss, (px_grad, py_grad) = k2.rnnt_loss_simple(
+        lm=simple_lm,
+        am=simple_am,
+        symbols=symbols,
+        termination_symbol=int(blank_idx),
+        boundary=boundary,
+        reduction="mean",
+        return_grad=True,
+    )
+
+    ranges = k2.get_rnnt_prune_ranges(
+        px_grad=px_grad,
+        py_grad=py_grad,
+        boundary=boundary,
+        s_range=int(prune_range),
+    )
+    am_pruned, lm_pruned = k2.do_rnnt_pruning(
+        am=enc_for_prune,
+        lm=pred_for_prune,
+        ranges=ranges,
+    )
+    logits_pruned = model_raw.joint.forward_pruned(am_pruned, lm_pruned).float()
+    pruned_loss = k2.rnnt_loss_pruned(
+        logits=logits_pruned,
+        symbols=symbols,
+        ranges=ranges,
+        termination_symbol=int(blank_idx),
+        boundary=boundary,
+        reduction="mean",
+    )
+    total_loss = (
+        float(simple_loss_scale) * simple_loss
+        + float(pruned_loss_scale) * pruned_loss
+    )
+    return total_loss, simple_loss, pruned_loss
+
+
 # ===================================================================
 # Training loop
 # ===================================================================
@@ -907,16 +1066,25 @@ def train_one_epoch(
     rnnt_fused_log_softmax: bool = False,
     rnnt_loss_device: str = "cuda",
     rnnt_max_batch_tu: int = 1_500_000,
+    rnnt_loss_impl: str = "torchaudio",
+    rnnt_prune_range: int = 5,
+    rnnt_simple_loss_scale: float = 0.5,
+    rnnt_pruned_loss_scale: float = 1.0,
 ):
     model.train()
 
     if loss_type == "ctc":
         loss_fn = nn.CTCLoss(blank=BLANK_IDX, reduction="mean", zero_infinity=True)
     else:
-        if not _RNNT_LOSS_AVAILABLE:
+        if rnnt_loss_impl == "torchaudio" and not _RNNT_LOSS_AVAILABLE:
             raise RuntimeError(
                 "torchaudio.functional.rnnt_loss not available. "
                 "Upgrade torchaudio or install a compatible version."
+            )
+        if rnnt_loss_impl == "k2_pruned" and not _K2_PRUNED_RNNT_AVAILABLE:
+            raise RuntimeError(
+                "k2 pruned RNNT requested but unavailable. "
+                "Install k2 with rnnt_loss_pruned support."
             )
 
     total_loss = 0.0
@@ -927,6 +1095,8 @@ def train_one_epoch(
     # Get the raw model for variational noise (not wrapped DDP)
     raw_model = model.module if isinstance(model, DDP) else model
     rnnt_chunk_count = 0
+    rnnt_simple_running = 0.0
+    rnnt_pruned_running = 0.0
 
     for step, (mel, tokens, mel_lengths, token_lengths) in enumerate(loader):
         mel = mel.to(device, non_blocking=True)
@@ -943,7 +1113,11 @@ def train_one_epoch(
         amp_enabled = device.type == "cuda" and autocast_dtype is not None
         use_scaler = (
             scaler.is_enabled()
-            and not (loss_type == "rnnt" and rnnt_loss_device == "cpu")
+            and not (
+                loss_type == "rnnt"
+                and rnnt_loss_impl == "torchaudio"
+                and rnnt_loss_device == "cpu"
+            )
         )
         raw_loss = 0.0
 
@@ -965,8 +1139,10 @@ def train_one_epoch(
                     else:
                         loss.backward()
         else:
-            # Keep rnnt_loss in FP32 but allow autocast in model forward for throughput.
-            rnnt_amp = amp_enabled and rnnt_loss_device == "cuda"
+            # Keep RNNT loss in FP32 while allowing autocast in encoder/predictor forward.
+            rnnt_amp = amp_enabled and (
+                rnnt_loss_impl == "k2_pruned" or rnnt_loss_device == "cuda"
+            )
             est_enc_lengths = raw_model.encoder.get_output_lengths(mel_lengths).clamp(min=1).int()
             batch_chunks = _build_rnnt_chunks(est_enc_lengths, token_lengths, rnnt_max_batch_tu)
             if not batch_chunks:
@@ -985,13 +1161,26 @@ def train_one_epoch(
                 with chunk_sync_ctx:
                     with autocast(device_type=device.type, dtype=autocast_dtype, enabled=rnnt_amp):
                         chunk_bs = e - s
-                        logits, enc_lengths = model(
-                            mel[s:e],
-                            mel_lengths[s:e],
-                            tokens[s:e],
-                            token_lengths[s:e],
-                        )
-                        enc_lengths = enc_lengths.clamp(min=1).int()
+                        if rnnt_loss_impl == "torchaudio":
+                            logits, enc_lengths = model(
+                                mel[s:e],
+                                mel_lengths[s:e],
+                                tokens[s:e],
+                                token_lengths[s:e],
+                            )
+                            enc_lengths = enc_lengths.clamp(min=1).int()
+                        else:
+                            _unused_logits, enc_lengths, enc_out, pred_out = model(
+                                mel[s:e],
+                                mel_lengths[s:e],
+                                tokens[s:e],
+                                token_lengths[s:e],
+                                return_components=True,
+                                compute_logits=False,
+                            )
+                            enc_lengths = enc_lengths.clamp(min=1).int()
+
+                    if rnnt_loss_impl == "torchaudio":
                         loss_chunk, n_chunks = _rnnt_loss_chunked(
                             logits=logits,
                             targets=tokens[s:e],
@@ -1002,8 +1191,28 @@ def train_one_epoch(
                             loss_device=rnnt_loss_device,
                             max_batch_tu=rnnt_max_batch_tu,
                         )
+                        rnnt_chunk_count += n_chunks
+                    else:
+                        loss_chunk, simple_loss_chunk, pruned_loss_chunk = _rnnt_loss_k2_pruned(
+                            model_raw=raw_model,
+                            enc_out=enc_out,
+                            pred_out=pred_out,
+                            targets=tokens[s:e],
+                            logit_lengths=enc_lengths,
+                            target_lengths=token_lengths[s:e],
+                            blank_idx=BLANK_IDX,
+                            prune_range=rnnt_prune_range,
+                            simple_loss_scale=rnnt_simple_loss_scale,
+                            pruned_loss_scale=rnnt_pruned_loss_scale,
+                        )
+                        rnnt_chunk_count += 1
+                        rnnt_simple_running += float(simple_loss_chunk.detach().item()) * (
+                            float(chunk_bs) / float(batch_size)
+                        )
+                        rnnt_pruned_running += float(pruned_loss_chunk.detach().item()) * (
+                            float(chunk_bs) / float(batch_size)
+                        )
 
-                    rnnt_chunk_count += n_chunks
                     weighted_loss = loss_chunk * (float(chunk_bs) / float(batch_size))
                     raw_loss += float(weighted_loss.detach().item())
                     loss_for_backward = weighted_loss / accum_steps
@@ -1045,7 +1254,15 @@ def train_one_epoch(
             if (step + 1) % 100 == 0:
                 if loss_type == "rnnt":
                     avg_chunks = rnnt_chunk_count / max(1, num_batches)
-                    print(f"  step {step+1:5d} | loss {running_loss:.4f} | lr {lr_now:.2e} | rnnt_chunks {avg_chunks:.2f}")
+                    if rnnt_loss_impl == "k2_pruned":
+                        avg_simple = rnnt_simple_running / max(1, num_batches)
+                        avg_pruned = rnnt_pruned_running / max(1, num_batches)
+                        print(
+                            f"  step {step+1:5d} | loss {running_loss:.4f} | lr {lr_now:.2e} "
+                            f"| rnnt_chunks {avg_chunks:.2f} | simple {avg_simple:.4f} | pruned {avg_pruned:.4f}"
+                        )
+                    else:
+                        print(f"  step {step+1:5d} | loss {running_loss:.4f} | lr {lr_now:.2e} | rnnt_chunks {avg_chunks:.2f}")
                 else:
                     print(f"  step {step+1:5d} | loss {running_loss:.4f} | lr {lr_now:.2e}")
 
@@ -1069,6 +1286,10 @@ def evaluate(
     rnnt_fused_log_softmax: bool = False,
     rnnt_loss_device: str = "cuda",
     rnnt_max_batch_tu: int = 1_500_000,
+    rnnt_loss_impl: str = "torchaudio",
+    rnnt_prune_range: int = 5,
+    rnnt_simple_loss_scale: float = 0.5,
+    rnnt_pruned_loss_scale: float = 1.0,
     rnnt_eval_decoder: str = "greedy",
     rnnt_eval_beam_size: int = 8,
     rnnt_eval_beam_topk: int = 10,
@@ -1110,7 +1331,9 @@ def evaluate(
             )
         else:
             # RNN-T
-            rnnt_amp = amp_enabled and rnnt_loss_device == "cuda"
+            rnnt_amp = amp_enabled and (
+                rnnt_loss_impl == "k2_pruned" or rnnt_loss_device == "cuda"
+            )
             with autocast(device_type=device.type, dtype=autocast_dtype, enabled=rnnt_amp):
                 est_enc_lengths = model.encoder.get_output_lengths(mel_lengths).clamp(min=1).int()
                 batch_chunks = _build_rnnt_chunks(est_enc_lengths, token_lengths, rnnt_max_batch_tu)
@@ -1118,23 +1341,46 @@ def evaluate(
                 loss_val = 0.0
                 for s, e, _t_max, _u_max in batch_chunks:
                     chunk_bs = e - s
-                    logits, enc_lengths = model(
-                        mel[s:e],
-                        mel_lengths[s:e],
-                        tokens[s:e],
-                        token_lengths[s:e],
-                    )
-                    enc_lengths = enc_lengths.clamp(min=1).int()
-                    loss_chunk, _ = _rnnt_loss_chunked(
-                        logits=logits,
-                        targets=tokens[s:e],
-                        logit_lengths=enc_lengths,
-                        target_lengths=token_lengths[s:e],
-                        blank_idx=BLANK_IDX,
-                        fused_log_softmax=rnnt_fused_log_softmax,
-                        loss_device=rnnt_loss_device,
-                        max_batch_tu=rnnt_max_batch_tu,
-                    )
+                    if rnnt_loss_impl == "torchaudio":
+                        logits, enc_lengths = model(
+                            mel[s:e],
+                            mel_lengths[s:e],
+                            tokens[s:e],
+                            token_lengths[s:e],
+                        )
+                        enc_lengths = enc_lengths.clamp(min=1).int()
+                        loss_chunk, _ = _rnnt_loss_chunked(
+                            logits=logits,
+                            targets=tokens[s:e],
+                            logit_lengths=enc_lengths,
+                            target_lengths=token_lengths[s:e],
+                            blank_idx=BLANK_IDX,
+                            fused_log_softmax=rnnt_fused_log_softmax,
+                            loss_device=rnnt_loss_device,
+                            max_batch_tu=rnnt_max_batch_tu,
+                        )
+                    else:
+                        _unused_logits, enc_lengths, enc_out_chunk, pred_out_chunk = model(
+                            mel[s:e],
+                            mel_lengths[s:e],
+                            tokens[s:e],
+                            token_lengths[s:e],
+                            return_components=True,
+                            compute_logits=False,
+                        )
+                        enc_lengths = enc_lengths.clamp(min=1).int()
+                        loss_chunk, _simple_loss, _pruned_loss = _rnnt_loss_k2_pruned(
+                            model_raw=model,
+                            enc_out=enc_out_chunk,
+                            pred_out=pred_out_chunk,
+                            targets=tokens[s:e],
+                            logit_lengths=enc_lengths,
+                            target_lengths=token_lengths[s:e],
+                            blank_idx=BLANK_IDX,
+                            prune_range=rnnt_prune_range,
+                            simple_loss_scale=rnnt_simple_loss_scale,
+                            pruned_loss_scale=rnnt_pruned_loss_scale,
+                        )
                     loss_val += float(loss_chunk.item()) * (float(chunk_bs) / float(batch_size))
             enc_out, enc_lens = model.encode(mel, mel_lengths)
             enc_lens = enc_lens.clamp(min=1)
@@ -1239,6 +1485,14 @@ def main() -> None:
         raise ValueError("--rnnt-eval-beam-topk must be >= 1")
     if args.rnnt_eval_max_symbols_per_step < 1:
         raise ValueError("--rnnt-eval-max-symbols-per-step must be >= 1")
+    if args.rnnt_prune_range < 1:
+        raise ValueError("--rnnt-prune-range must be >= 1")
+    if args.rnnt_simple_loss_scale < 0:
+        raise ValueError("--rnnt-simple-loss-scale must be >= 0")
+    if args.rnnt_pruned_loss_scale <= 0:
+        raise ValueError("--rnnt-pruned-loss-scale must be > 0")
+    if args.early_stop_patience < 0:
+        raise ValueError("--early-stop-patience must be >= 0")
     streaming_enabled = bool(args.streaming_mode or args.streaming_chunk_size > 0)
     if not streaming_enabled:
         args.streaming_chunk_size = 0
@@ -1253,11 +1507,17 @@ def main() -> None:
     _set_seed(args.seed + rank)
     _configure_runtime(args, device, is_main)
 
-    if args.loss_type == "rnnt" and not _RNNT_LOSS_AVAILABLE:
-        raise RuntimeError(
-            "RNN-T loss requires torchaudio with rnnt_loss support. "
-            "Install a recent version of torchaudio."
-        )
+    if args.loss_type == "rnnt":
+        if args.rnnt_loss_impl == "torchaudio" and not _RNNT_LOSS_AVAILABLE:
+            raise RuntimeError(
+                "RNN-T loss requires torchaudio with rnnt_loss support. "
+                "Install a recent version of torchaudio."
+            )
+        if args.rnnt_loss_impl == "k2_pruned" and not _K2_PRUNED_RNNT_AVAILABLE:
+            raise RuntimeError(
+                "k2_pruned RNNT requested but k2 is unavailable. "
+                "Install k2 with rnnt_loss_pruned support."
+            )
 
     try:
         os.makedirs(args.ckpt_dir, exist_ok=True)
@@ -1342,9 +1602,8 @@ def main() -> None:
         # LM decoder (CTC + LM only)
         eval_lm_decoder = None
         if args.eval_lm_path and args.loss_type == "ctc":
-            from tokenizer import CHAR_VOCAB
             eval_lm_decoder = build_lm_decoder(
-                vocab=CHAR_VOCAB, lm_path=args.eval_lm_path,
+                vocab=_ctc_decoder_vocab(tokenizer), lm_path=args.eval_lm_path,
                 blank_idx=BLANK_IDX, alpha=args.eval_lm_alpha, beta=args.eval_lm_beta,
             )
             if is_main:
@@ -1506,7 +1765,12 @@ def main() -> None:
                 raise FileNotFoundError(f"Checkpoint not found: {resume_path}")
             ckpt = torch.load(resume_path, map_location=device, weights_only=False)
             ckpt_cfg = ckpt.get("config", {}) or {}
-            model_raw.load_state_dict(ckpt["model"])
+            _load_state_dict_flexible(
+                module=model_raw,
+                state_dict=ckpt["model"],
+                is_main=is_main,
+                label="resume",
+            )
             if "optimizer" in ckpt:
                 optimizer.load_state_dict(ckpt["optimizer"])
             if args.override_lr_on_resume:
@@ -1592,8 +1856,17 @@ def main() -> None:
             print(f"torch.compile: {args.compile} ({args.compile_mode})")
             print(f"Variational noise: {args.variational_noise}")
             if args.loss_type == "rnnt":
-                print(f"RNN-T fused log_softmax: {args.rnnt_fused_log_softmax}")
-                print(f"RNN-T loss device: {args.rnnt_loss_device}")
+                print(f"RNN-T loss impl: {args.rnnt_loss_impl}")
+                if args.rnnt_loss_impl == "torchaudio":
+                    print(f"RNN-T fused log_softmax: {args.rnnt_fused_log_softmax}")
+                    print(f"RNN-T loss device: {args.rnnt_loss_device}")
+                else:
+                    print(
+                        "RNN-T pruned settings: "
+                        f"prune_range={args.rnnt_prune_range} "
+                        f"simple_scale={args.rnnt_simple_loss_scale} "
+                        f"pruned_scale={args.rnnt_pruned_loss_scale}"
+                    )
                 print(f"RNN-T max batch*T*U: {args.rnnt_max_batch_tu}")
                 print(
                     "RNN-T eval decoder: "
@@ -1603,8 +1876,11 @@ def main() -> None:
                 )
             print(f"Effective batch: {args.batch_size} x {args.accum_steps} x {world_size} = "
                   f"{args.batch_size * args.accum_steps * world_size}")
+            if args.early_stop_patience > 0:
+                print(f"Early stopping: patience={args.early_stop_patience} evals without WER improvement")
             print()
 
+        no_improve_evals = 0
         for epoch_idx in range(start_epoch, args.epochs):
             t0 = time.time()
             if is_main:
@@ -1630,6 +1906,10 @@ def main() -> None:
                 rnnt_fused_log_softmax=args.rnnt_fused_log_softmax,
                 rnnt_loss_device=args.rnnt_loss_device,
                 rnnt_max_batch_tu=args.rnnt_max_batch_tu,
+                rnnt_loss_impl=args.rnnt_loss_impl,
+                rnnt_prune_range=args.rnnt_prune_range,
+                rnnt_simple_loss_scale=args.rnnt_simple_loss_scale,
+                rnnt_pruned_loss_scale=args.rnnt_pruned_loss_scale,
             )
 
             run_eval = ((epoch_idx + 1) % max(1, args.eval_every) == 0) or ((epoch_idx + 1) == args.epochs)
@@ -1644,6 +1924,10 @@ def main() -> None:
                     rnnt_fused_log_softmax=args.rnnt_fused_log_softmax,
                     rnnt_loss_device=args.rnnt_loss_device,
                     rnnt_max_batch_tu=args.rnnt_max_batch_tu,
+                    rnnt_loss_impl=args.rnnt_loss_impl,
+                    rnnt_prune_range=args.rnnt_prune_range,
+                    rnnt_simple_loss_scale=args.rnnt_simple_loss_scale,
+                    rnnt_pruned_loss_scale=args.rnnt_pruned_loss_scale,
                     rnnt_eval_decoder=args.rnnt_eval_decoder,
                     rnnt_eval_beam_size=args.rnnt_eval_beam_size,
                     rnnt_eval_beam_topk=args.rnnt_eval_beam_topk,
@@ -1653,6 +1937,20 @@ def main() -> None:
             else:
                 val_loss, val_wer = float("nan"), float("nan")
                 val_wer_greedy, val_wer_beam = float("nan"), float("nan")
+
+            improved_this_eval = False
+            if run_eval and math.isfinite(val_wer):
+                if val_wer < best_wer:
+                    improved_this_eval = True
+                    no_improve_evals = 0
+                else:
+                    no_improve_evals += 1
+            stop_early = (
+                args.early_stop_patience > 0
+                and run_eval
+                and math.isfinite(val_wer)
+                and no_improve_evals >= args.early_stop_patience
+            )
 
             elapsed = time.time() - t0
 
@@ -1752,6 +2050,10 @@ def main() -> None:
                         "accum_steps": args.accum_steps,
                         "grad_clip": args.grad_clip,
                         "world_size": world_size,
+                        "rnnt_loss_impl": args.rnnt_loss_impl,
+                        "rnnt_prune_range": args.rnnt_prune_range,
+                        "rnnt_simple_loss_scale": args.rnnt_simple_loss_scale,
+                        "rnnt_pruned_loss_scale": args.rnnt_pruned_loss_scale,
                         "rnnt_fused_log_softmax": args.rnnt_fused_log_softmax,
                         "rnnt_loss_device": args.rnnt_loss_device,
                         "rnnt_max_batch_tu": args.rnnt_max_batch_tu,
@@ -1760,18 +2062,28 @@ def main() -> None:
                         "rnnt_eval_beam_topk": args.rnnt_eval_beam_topk,
                         "rnnt_eval_max_symbols_per_step": args.rnnt_eval_max_symbols_per_step,
                         "init_encoder_from": args.init_encoder_from,
+                        "early_stop_patience": args.early_stop_patience,
                     },
                 }
                 should_save_last = (
                     (epoch_idx + 1) == args.epochs
                     or ((epoch_idx + 1) % max(1, args.save_every) == 0)
+                    or stop_early
                 )
                 if should_save_last:
                     torch.save(ckpt_data, os.path.join(args.ckpt_dir, "last.pt"))
-                if run_eval and math.isfinite(val_wer) and val_wer < best_wer:
+                if improved_this_eval:
                     best_wer = val_wer
                     torch.save(ckpt_data, os.path.join(args.ckpt_dir, "best.pt"))
                     print(f"  ** New best WER: {best_wer:.2%} **")
+                if stop_early:
+                    print(
+                        f"Early stopping triggered: no val_wer improvement for "
+                        f"{args.early_stop_patience} evals."
+                    )
+
+            if stop_early:
+                break
 
         if is_main:
             print(f"\nTraining complete. Best WER: {best_wer:.2%}")
