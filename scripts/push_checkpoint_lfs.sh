@@ -2,27 +2,33 @@
 set -euo pipefail
 
 usage() {
-  cat <<'EOF'
+  cat <<'USAGE'
 Usage:
   scripts/push_checkpoint_lfs.sh [options]
 
+Description:
+  Upload a model checkpoint or artifact to Hugging Face Hub.
+
 Options:
-  -f, --file PATH       Checkpoint path (default: checkpoints/best.pt)
-  -r, --remote NAME     Git remote (default: origin)
-  -b, --branch NAME     Target branch (default: current branch)
-  -m, --message TEXT    Commit message
-  -n, --dry-run         Show actions without commit/push
-  -h, --help            Show this help
+  -f, --file PATH            Local file path to upload (default: checkpoints/best.pt)
+  -r, --repo REPO_ID         Hugging Face repo id (default: jtang25/asr)
+  -t, --repo-type TYPE       Repo type: model|dataset|space (default: model)
+  -p, --path-in-repo PATH    Destination path in repo (default: same as --file)
+  -m, --message TEXT         Commit message
+  -n, --dry-run              Show command without uploading
+  -h, --help                 Show this help
 
 Examples:
   scripts/push_checkpoint_lfs.sh
-  scripts/push_checkpoint_lfs.sh --file checkpoints/best.pt --remote origin --branch main
-EOF
+  scripts/push_checkpoint_lfs.sh --file checkpoints_jp_only_ctc_no_vn/best.pt
+  scripts/push_checkpoint_lfs.sh --file lm/3-gram.pruned.1e-7.lower.arpa --repo jtang25/asr
+USAGE
 }
 
 FILE="checkpoints/best.pt"
-REMOTE="origin"
-BRANCH=""
+REPO_ID="jtang25/asr"
+REPO_TYPE="model"
+PATH_IN_REPO=""
 MESSAGE=""
 DRY_RUN=0
 
@@ -32,12 +38,16 @@ while [[ $# -gt 0 ]]; do
       FILE="${2:-}"
       shift 2
       ;;
-    -r|--remote)
-      REMOTE="${2:-}"
+    -r|--repo)
+      REPO_ID="${2:-}"
       shift 2
       ;;
-    -b|--branch)
-      BRANCH="${2:-}"
+    -t|--repo-type)
+      REPO_TYPE="${2:-}"
+      shift 2
+      ;;
+    -p|--path-in-repo)
+      PATH_IN_REPO="${2:-}"
       shift 2
       ;;
     -m|--message)
@@ -60,76 +70,43 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if ! command -v git >/dev/null 2>&1; then
-  echo "git is not installed." >&2
+if [[ ! -f "${FILE}" ]]; then
+  echo "Artifact file not found: ${FILE}" >&2
   exit 1
 fi
 
-if ! command -v git-lfs >/dev/null 2>&1; then
-  echo "git-lfs is not installed. Install it first." >&2
-  exit 1
-fi
-
-REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
-if [[ -z "${REPO_ROOT}" ]]; then
-  echo "Not inside a git repository." >&2
-  exit 1
-fi
-cd "${REPO_ROOT}"
-
-if [[ "${FILE}" = /* ]]; then
-  case "${FILE}" in
-    "${REPO_ROOT}"/*) FILE="${FILE#${REPO_ROOT}/}" ;;
-    *)
-      echo "--file must be inside the git repository." >&2
-      exit 1
-      ;;
-  esac
-fi
-
-if [[ -z "${BRANCH}" ]]; then
-  BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+if [[ -z "${PATH_IN_REPO}" ]]; then
+  PATH_IN_REPO="${FILE}"
 fi
 
 if [[ -z "${MESSAGE}" ]]; then
-  MESSAGE="Track ${FILE} via Git LFS"
+  MESSAGE="Upload ${PATH_IN_REPO}"
 fi
 
-if [[ ! -f "${FILE}" ]]; then
-  echo "Checkpoint file not found: ${FILE}" >&2
+HF_BIN=""
+if command -v hf >/dev/null 2>&1; then
+  HF_BIN="$(command -v hf)"
+elif [[ -x "/root/.local/bin/hf" ]]; then
+  HF_BIN="/root/.local/bin/hf"
+else
+  echo "Hugging Face CLI not found. Install with: pip install huggingface_hub" >&2
   exit 1
 fi
 
-echo "Repo: ${REPO_ROOT}"
-echo "File: ${FILE}"
-echo "Remote: ${REMOTE}"
-echo "Branch: ${BRANCH}"
+echo "Local file: ${FILE}"
+echo "Repo id: ${REPO_ID}"
+echo "Repo type: ${REPO_TYPE}"
+echo "Path in repo: ${PATH_IN_REPO}"
 
-git lfs install --local >/dev/null
-git lfs track "${FILE}" >/dev/null
-
-if [[ ! -f .gitattributes ]]; then
-  echo "Failed to create .gitattributes with LFS tracking rule." >&2
-  exit 1
-fi
-
-git add -- .gitattributes "${FILE}"
+CMD=("${HF_BIN}" upload "${REPO_ID}" "${FILE}" "${PATH_IN_REPO}" --repo-type "${REPO_TYPE}" --commit-message "${MESSAGE}")
 
 if [[ "${DRY_RUN}" -eq 1 ]]; then
-  echo "[dry-run] Staged files:"
-  git diff --cached --name-status -- .gitattributes "${FILE}" || true
-  echo "[dry-run] Would run: git commit -m \"${MESSAGE}\" -- .gitattributes \"${FILE}\""
-  echo "[dry-run] Would run: git push ${REMOTE} HEAD:${BRANCH}"
+  printf '[dry-run]'
+  printf ' %q' "${CMD[@]}"
+  printf '\n'
   exit 0
 fi
 
-if git diff --cached --quiet -- .gitattributes "${FILE}"; then
-  echo "No staged changes for .gitattributes or ${FILE}. Skipping commit."
-else
-  git commit -m "${MESSAGE}" -- .gitattributes "${FILE}"
-fi
+"${CMD[@]}"
 
-git push "${REMOTE}" "HEAD:${BRANCH}"
-
-echo "Done. LFS-tracked checkpoint pushed to ${REMOTE}/${BRANCH}."
-echo "Verify with: git lfs ls-files | grep -F \"${FILE}\""
+echo "Upload complete: hf.co/${REPO_ID}/${PATH_IN_REPO}"

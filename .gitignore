@@ -1,6 +1,27 @@
 env
+.venv
+
+# Legacy local LM artifacts
 data/lm/4-gram.arpa
 lm/4-gram.lower.arpa
 lm/4-gram.lower.bin
 lm/4-gram.arpa.gz
-.venv
+
+# Keep this repo code-only (large assets live on Hugging Face)
+dataset/
+data/
+lm/
+checkpoints*/
+*.pt
+*.bin
+*.tar.gz
+*.tar.gz.*
+*.partial
+tokenizer/sp_1k_corpus.txt
+
+# Python cache artifacts
+__pycache__/
+*.pyc
+
+# Local Hugging Face mirror checkout
+hf-asr/

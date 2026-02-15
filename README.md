@@ -30,10 +30,9 @@ Utility scripts:
 - `scripts/train_conformer_m_ctc_960.sh`: 2-stage CTC -> RNN-T pipeline launcher.
 - `scripts/train_finetune_jerome_powell_ctc.sh`: wrapper for Jerome Powell fine-tuning workflow (see known issues below).
 
-Data/model artifacts currently tracked in repo:
-- `dataset/` (pre-segmented Jerome Powell audio + transcripts, plus eval subset).
-- `lm/` (3-gram ARPA LM files).
-- Multiple checkpoint directories and benchmark logs.
+Large data/model artifacts are hosted on Hugging Face:
+- `https://huggingface.co/jtang25/asr`
+- Keep this GitHub repo code-only; download assets locally when needed.
 
 ## Environment Setup
 
@@ -57,6 +56,43 @@ Notes:
 - Optional RNN-T backend `k2` is supported (`--rnnt-loss-impl k2_pruned`) but not pinned in requirements; install separately if needed.
 - Bash scripts assume Linux/WSL/Git-Bash and tools like `ffmpeg`.
 
+## Hugging Face Assets
+
+Use `jtang25/asr` for model weights, language models, and dataset artifacts:
+- Repo: `https://huggingface.co/jtang25/asr`
+
+Install client:
+
+```bash
+pip install huggingface_hub
+```
+
+Download one file programmatically:
+
+```python
+from huggingface_hub import hf_hub_download
+
+checkpoint_path = hf_hub_download(
+    repo_id="jtang25/asr",
+    filename="checkpoints_jp_only_ctc_no_vn/best.pt",
+    repo_type="model",
+)
+print(checkpoint_path)
+```
+
+Download a folder snapshot:
+
+```python
+from huggingface_hub import snapshot_download
+
+local_dir = snapshot_download(
+    repo_id="jtang25/asr",
+    repo_type="model",
+    allow_patterns=["lm/**", "dataset/**", "checkpoints*/**"],
+)
+print(local_dir)
+```
+
 ## Dataset Layout Expected By Code
 
 LibriSpeech root:
@@ -77,15 +113,10 @@ Each split uses standard LibriSpeech files (`*.flac` + `<speaker>-<chapter>.tran
 `preprocessing/LibriSpeechASR` also handles an alternate nested extraction:
 - `.../LibriSpeech/<split>/<split>/...`
 
-### Jerome Powell Data In This Checkout
+### Jerome Powell Data
 
-This repository currently contains a prepared custom dataset under:
-- `dataset/JeromePowell/9999/{001..008}`
-- `dataset/_eval_jerome_powell_all_clean/LibriSpeech/dev-clean/9999/{001..008}`
-
-Snapshot (current tree):
-- `dataset/JeromePowell`: 3,508 `.flac` segments + chapter `.trans.txt` + generated `split_audio.sh`.
-- `dataset/_eval_jerome_powell_all_clean/.../dev-clean`: 3,500 `.flac` segments for evaluation.
+Jerome Powell dataset artifacts are hosted in the Hugging Face repo (`jtang25/asr`) instead of this GitHub repository.
+Clone/download those assets locally before running custom-data training or evaluation workflows.
 
 ### Download LibriSpeech
 
@@ -312,7 +343,7 @@ Decoding details from `decoding.py`:
 
 1. `scripts/train_finetune_jerome_powell_ctc.sh` references `scripts/finetune_conformer_m_ctc_dataset.sh`, but that script is not present in this repository.
 2. Some script defaults reference non-present files, e.g. `lm/4-gram.lower.arpa`, `lm/4-gram.lower.bin`, `checkpoints_conformer_l_4xh200/last.pt`, `checkpoints_dev_other/training_log.csv`.
-3. Repo tracks large binary assets (`dataset`, `*.pt`, ARPA files), so clone size is large.
+3. Large binary assets were moved to Hugging Face (`jtang25/asr`), so scripts that depend on checkpoints/LMs require downloading those assets first.
 4. `requirements.txt` includes notebook/dev packages; for lean runtime installs, create a minimal requirements set if needed.
 
 ## Suggested Workflow
