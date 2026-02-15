@@ -1,0 +1,808 @@
+[00:00:08.300] Good afternoon. My colleagues and I remain squarely focused on achieving our dual mandate
+[00:00:15.030] goals of maximum employment and stable prices for the benefit of the American people. Despite
+[00:00:21.110] heightened uncertainty, the economy is still in a solid position. The unemployment rate
+[00:00:26.690] remains low, and the labor market is at or near maximum employment. Inflation has
+[00:00:31.990] come down a great deal, but has been running somewhat above our 2 percent longer-run objective.
+[00:00:39.780] In support of our goals, today the Federal Open Market Committee decided to leave our
+[00:00:43.140] policy interest rate unchanged. The risks of higher unemployment and higher inflation
+[00:00:48.990] appear to have risen, and we believe that the current stance of monetary policy leaves us
+[00:00:54.010] well positioned to respond in a timely way to potential economic developments. I will
+[00:01:00.450] have more to say about monetary policy after briefly reviewing economic developments.
+[00:01:07.990] Given growth of 2.5 percent last year, GDP was reported to have edged down in the first
+[00:01:13.090] quarter, reflecting swings in net exports that were likely driven by businesses bringing
+[00:01:18.070] in imports ahead of potential tariffs. This unusual swing complicated GDP measurement last
+[00:01:24.820] quarter. Private domestic final purchases, or PDFP, which excludes net exports, inventory
+[00:01:31.520] investment and government spending, grew at a solid 3 percent rate in the first quarter,
+[00:01:36.500] the same as last year's pace. Within PDFP, growth of consumer spending moderated, while
+[00:01:41.930] investment in equipment and intangibles rebounded from weakness in the fourth quarter. Surveys
+[00:01:47.440] of households and businesses, however, report a sharp decline in sentiment and elevated
+[00:01:51.640] uncertainty about the economic outlook, largely reflecting trade policy concerns. It remains
+[00:01:58.890] to be seen how these developments might affect future spending and investment. In the labor
+[00:02:04.560] market, conditions have remained solid. Payroll job gains averaged 155,000 per month over
+[00:02:11.420] the past three months. The unemployment rate at 4.2 percent remains low and has stayed in
+[00:02:16.460] a narrow range for the past year. Wage growth has continued to moderate, while still outpacing
+[00:02:23.130] inflation. Overall, a wide set of indicators suggest that conditions in the labor market
+[00:02:28.110] are broadly in balance and consistent with maximum employment. The labor market is not
+[00:02:33.970] a source of significant inflationary pressures. Inflation has eased significantly from its
+[00:02:40.200] highs in mid-2022, but remains somewhat elevated relative to our 2 percent longer-run goal.
+[00:02:47.920] Total PCE prices rose 2.3 percent over the 12 months ending in March. Excluding the
+[00:02:53.340] volatile food and energy categories, core PCE prices rose 2.6 percent. Near-term measures
+[00:02:59.910] of inflation expectations have moved up, as reflected in both market and survey-based
+[00:03:04.690] indicators. Survey respondents, including consumers, businesses, and professional forecasters,
+[00:03:10.450] point to tariffs as the driving factor. Beyond the next year or so, however, most measures
+[00:03:16.190] of longer-term expectations remain consistent with our 2 percent inflation goal. Our monetary
+[00:03:23.460] policy actions are guided by our dual mandate to promote maximum employment and stable prices
+[00:03:28.620] for the American people. At today's meeting, the Committee decided to maintain the target
+[00:03:33.260] range for the federal funds rate at 4.25 to 4.5 percent and to continue reducing the
+[00:03:38.660] size of the balance sheet. The new administration is in the process of implementing substantial
+[00:03:44.360] policy changes in four distinct areas – trade, immigration, fiscal policy, and regulation.
+[00:03:51.630] The tariff increases announced so far have been significantly larger than anticipated.
+[00:03:56.550] All of these policies are still evolving, however, and their effects on the economy
+[00:04:00.350] remain highly uncertain. As economic conditions evolve, we will continue to determine the
+[00:04:06.460] appropriate stance of monetary policy based on the incoming data, the outlook, and the
+[00:04:11.620] balance of risks. If the large increases in tariffs that have been announced are sustained,
+[00:04:18.330] they are likely to generate a rise in inflation, a slowdown in economic growth, and an increase
+[00:04:23.410] in unemployment. The effects on inflation could be short-lived, reflecting a one-time
+[00:04:28.450] shift in the price level. It is also possible that the inflationary effects could instead
+[00:04:33.530] be more persistent. Avoiding that outcome will depend on the size of the tariff effects,
+[00:04:39.410] on how long it takes for them to pass through fully into prices, and ultimately on keeping
+[00:04:43.610] longer-term inflation expectations well anchored. Our obligation is to keep longer-term inflation
+[00:04:49.620] expectations well anchored and to prevent a one-time increase in the price level from
+[00:04:53.420] becoming an ongoing inflation problem. As we act to meet that obligation, we will balance
+[00:04:59.160] our maximum employment and price stability mandates, keeping in mind that, without price
+[00:05:03.840] stability, we cannot achieve the long periods of strong labor market conditions that benefit
+[00:05:08.760] all Americans. We may find ourselves in the challenging scenario in which our dual mandate
+[00:05:14.500] goals are in tension. If that were to occur, we would consider how far the economy
+[00:05:19.180] is from each goal and the potentially different time horizons over which those respective
+[00:05:24.380] gaps would be anticipated to close. For the time being, we are well positioned to wait for
+[00:05:30.150] greater clarity before considering any adjustments to our policy stance. At this meeting, the
+[00:05:36.470] Committee continued its discussions as part of our five-year review of our monetary
+[00:05:39.870] policy framework. We focused on inflation dynamics and the implications for our monetary
+[00:05:45.580] policy strategy. Our review includes outreach and public events involving a wide range of
+[00:05:51.260] parties, including Fed Listens events around the country and a research conference next
+[00:05:56.340] week. Throughout this process, we are open to new ideas and critical feedback, and we
+[00:06:01.720] will take on board lessons of the last five years in determining our findings. We intend
+[00:06:06.680] to wrap up the review by late summer. The Fed has been assigned two goals for monetary
+[00:06:12.410] policy – maximum employment and stable prices. We remain committed to supporting
+[00:06:17.090] maximum employment, bringing inflation sustainably to our 2 percent goal, and keeping longer
+[00:06:22.370] term inflation expectations well anchored. Our success in delivering on these goals matters
+[00:06:28.160] to all Americans. We understand that our actions affect communities, families, and businesses
+[00:06:33.440] across the country. Everything we do is in service to our public mission. We at the
+[00:06:39.120] Fed will do everything we can to achieve our maximum employment and price stability
+[00:06:42.960] goals. Thank you. I look forward to your questions.
+[00:06:46.120] Steve Leesman, CNBC. Thank you, Mr. Chairman, for taking my question. A lot has happened
+[00:06:54.780] since the last meeting. There have been tariffs put on, tariffs taken off, and I mean there
+[00:06:58.700] was a bill advancing in Congress. And I just wonder if I could press you on the last
+[00:07:02.900] part of your statement. Are you any closer now to deciding which side of the mandate
+[00:07:09.060] is going to need urgent care first? Well, so as we noted in our post-meeting
+[00:07:19.420] statement, we've judged that the risks to higher employment and higher inflation have
+[00:07:22.680] both risen. And this, by the way, of course, is compared to March. So that's what we
+[00:07:27.580] can say. I don't think we can say which way this will shake out. I think there's
+[00:07:34.220] a great deal of uncertainty about, for example, where tariff policies are going to settle
+[00:07:39.620] out. And also, when they do settle out, what will be the implications for the economy for
+[00:07:43.860] growth and for employment? I think it's too early to know that. So, I mean, ultimately,
+[00:07:48.340] we think our policy rate is in a good place to stay as we await further clarity on tariffs
+[00:07:55.420] and ultimately our implications for the economy. Hearing you describe what you're looking
+[00:08:00.300] for in terms of being able to make a decision, it sounded like that's a long-term process
+[00:08:05.340] before you sound like you're going to be comfortable or the committee would be comfortable
+[00:08:09.060] to act on what the data is telling you. I don't think we know. Look where we are today.
+[00:08:16.740] We have an economy that, if you look through the sort of distortions in Q1 GDP, you've
+[00:08:23.300] still got an economy that looks like it's growing at a solid pace. The labor market
+[00:08:26.460] appears to be solid. Inflation is running just a bit above 2%. So it's an economy that's
+[00:08:32.300] been resilient and is in good shape. And our policy is sort of modestly or moderately
+[00:08:38.140] restrictive. It's 100 basis points less restrictive than it was last fall. And so we think that
+[00:08:44.580] leaves us in a good place to wait and see. We don't think we need to be in a hurry. We
+[00:08:47.980] think we can be patient. We're going to be watching the data. The data may move quickly
+[00:08:52.420] or slowly, but we do think we're in a good position where we are to let things evolve
+[00:08:59.020] and become clearer in terms of what should be the monetary policy response.
+[00:09:03.950] Nick. Nick, can I speak for a moment?
+[00:09:10.160] Sure, however, there's actually a lot of issues around 2021 and supply shocks. But there are
+[00:09:16.230] some who argue that the current situation has notable differences. Energy costs are down.
+[00:09:21.270] Housing imbalances look nothing like they did four years ago. Labor demand appears to
+[00:09:25.590] be gradually cooling with wage growth running below 4%. What do you see right now that
+[00:09:31.670] could nourish higher inflation beyond a rise in goods prices this year?
+[00:09:38.710] I think the underlying inflation picture is good. It's what you see, which is inflation
+[00:09:44.750] now running a bit above 2%. And we've had basically decent readings in housing services
+[00:09:50.710] and non-housing services, which is a big part of it. So that part, I think, is moving
+[00:09:57.830] along well. But there's just so much that we don't know. And we're in a good position
+[00:10:05.590] to wait and see is the thing. We don't have to be in a hurry. The economy has been resilient
+[00:10:09.990] and is doing fairly well. Our policy is well positioned. The costs of waiting to see further
+[00:10:15.350] are fairly low, we think. So that's what we're doing. And we'll see the administration
+[00:10:23.910] is entering into negotiations with many countries over tariffs. We'll know more with each week
+[00:10:30.990] and month it goes by about where tariffs are going to land. And we'll know what the effects
+[00:10:36.910] will be when we start to see those things. So we think we'll be learning. I can't tell
+[00:10:40.470] you how long it will take. But for now, it does seem like it's a fairly clear decision
+[00:10:46.190] for us to wait and see and watch.
+[00:10:49.230] So when you say that you don't need to be in a hurry, does that mean that could the outlook
+[00:10:54.470] change in such a way that a change in your stance could be warranted as soon as your
+[00:10:58.230] next meeting?
+[00:11:00.550] As I said, we are comfortable with our policy stance. We think we're in the right place
+[00:11:09.240] to wait and see how things evolve. We don't feel like we need to be in a hurry. We feel
+[00:11:13.440] like it's appropriate to be patient. And when things develop, of course, we have a
+[00:11:19.440] record of-we can move quickly when that's appropriate. But we think right now the appropriate
+[00:11:24.560] thing to do is to wait and see how things evolve. There's so much uncertainty. If you
+[00:11:28.000] talk to businesses or market participants or forecasters, everyone is just waiting to
+[00:11:34.920] see how developments play out. And then we'll be able to make a better assessment of what
+[00:11:39.920] the appropriate path for monetary policy is. So we're not in that place. And, you know,
+[00:11:44.600] as that develops-and I can't really give you a time frame on that.
+[00:11:49.890] Janelle.
+[00:11:53.360] Janelle Marté with Bloomberg. So many economists have been pricing in higher odds of a recession.
+[00:12:00.720] And several are noting that it is more difficult for the Fed to cut rates preemptively given
+[00:12:07.440] the higher risks for higher inflation. So given the outlook, do you still see a path
+[00:12:14.810] for a soft landing? And what does that look like?
+[00:12:18.740] Well, let me say-I mean, so let's look back and see where we are. So go through 2024 up
+[00:12:28.750] to the day. We've had, you know, unemployment in the low 4s for more than a year. We've
+[00:12:33.110] had inflation coming down in the now in the mid to low 2s. We've had an economy growing
+[00:12:38.230] at 2.5 percent. So that is the economy as we see it now. What looks likely, given the
+[00:12:46.350] scope and scale of the tariffs, is that we will see-certainly the risks to higher inflation,
+[00:12:53.790] higher unemployment have increased. And if that's what we do see, and if the tariffs
+[00:12:58.150] are ultimately put in place at those levels, which we don't know, then we will see-we
+[00:13:03.310] won't see further progress toward our goals. But we might see a delay in that. I think
+[00:13:07.870] in the-you know, in our thinking, we would get-we would never-we never do anything but
+[00:13:12.470] keep achieving those goals. But we would-at least for the next, let's say, year, we would
+[00:13:18.110] not be making progress toward those goals. Again, if that is-if that's the way the tariffs
+[00:13:22.110] shake out. The thing is, we don't know that. There's so much uncertainty about the scale,
+[00:13:26.590] scope, timing, and persistence of the tariffs. So that's that. In terms of preemption,
+[00:13:34.750] you know, I think you can look back at the 2019 cuts as preemption. I wouldn't say
+[00:13:40.550] that what we did last fall was at all preemptive. If anything, it was a little
+[00:13:43.710] late. But 2019, we did cut three times. But the situation was you had a
+[00:13:49.630] weakening economy, and you had inflation at 1.6 percent. So that's a situation where
+[00:13:55.150] you can move preemptively. Now we have inflation running above target. It has
+[00:13:58.830] been above target for four years. It's not so far above target now. And we
+[00:14:03.150] have an expectation, conditional on what happens, that we'll see upward
+[00:14:08.510] pressure on inflation. If you look at where forecasters are, they're all
+[00:14:11.190] forecasting an increase in inflation. So it makes it-and then we've also got, you
+[00:14:16.510] know, forecasts of weakening in the economy, and some have recession
+[00:14:20.710] forecasts. We don't make a-we don't make a-publish a forecast about-about that.
+[00:14:24.510] We don't publish a forecast that assesses how likely a recession is. But
+[00:14:28.310] in any case, it's-it's not a situation where we can be preemptive because we
+[00:14:32.430] actually don't know what the right response to-to the data will be until
+[00:14:37.550] we see more data. Colby Smith with the New York Times. How much weakness does
+[00:14:47.640] the Committee need to see, though, in the labor market and the economy more
+[00:14:50.600] broadly to lower interest rates again? Is it about a certain increase in the
+[00:14:54.760] unemployment rate over a period of time, or perhaps a certain number of
+[00:15:00.200] negative monthly job reports? I mean, how are you making that assessment? You
+[00:15:04.800] know, so first of all, we don't see that yet, right? We have 4.2 percent
+[00:15:07.960] unemployment, good participation, wages behaving very well, participation-I
+[00:15:13.120] mentioned it at a good level. So, you know, with the labor market, we would
+[00:15:16.760] look at the totality of that-of the data. We'd look at the level of the
+[00:15:20.840] unemployment rate. We'd look at the speed with which it's changing. We would
+[00:15:25.200] look at the whole huge array of labor market data to-to get a sense of
+[00:15:29.680] whether conditions are really deteriorating or not. And-and at the
+[00:15:34.040] same time, we'd be looking at the other side of the mandate. We-we could
+[00:15:36.720] be in a position of having to balance those two things, which is, of course, a
+[00:15:39.680] very difficult balancing judgment that we'd have to make. On that point about
+[00:15:45.320] balancing, I mean, you've mentioned that the Committee would consider how far the
+[00:15:49.680] economy is from each goal and the time it would take to-to kind of get back to
+[00:15:53.520] that point. But what does that mean in practice? I mean, how much of that
+[00:15:56.520] assessment will be rooted in a forecast versus data dependence? It would be a
+[00:16:02.160] combination of the two. I mean, let's just say this is-this would be a
+[00:16:06.480] complicated and challenging judgment that we would have to make. Yeah, if-and this
+[00:16:11.200] is-we're not in this situation, but the situation is if the two goals are
+[00:16:14.360] in tension. So let's say that unemployment is-is moving up in an
+[00:16:18.480] uncomfortable way, and so is inflation. Not the situation we're in,
+[00:16:21.720] hypothetically, but we would-we would look at how far they are from the goals, how
+[00:16:25.800] far they're expected to be from the goals, what's the expected time to get
+[00:16:29.080] back to their goals. We'd look at all those things and make a difficult
+[00:16:32.360] judgment. And that-that's in our framework. It's-it's always been in our
+[00:16:35.320] thinking, you know, it's-we haven't had-we haven't faced that question in a very
+[00:16:39.200] long time. And so, again, difficult-difficult judgment to make. And not
+[00:16:45.480] one that we face today, and we-and we may-we may never face it, but, you know, we
+[00:16:49.280] have to be keeping it in our-in our thinking now. Edward. Thank you. Edward
+[00:16:56.760] Lawrence with Fox Business. So we had the-the CPI report that came out that
+[00:17:01.640] showed, month over month, the first decrease in inflation in about three
+[00:17:05.040] years. The jobs report, you said, solid, that we saw. At the same time, we have
+[00:17:08.720] those new tariffs that we're living under. So, given this, should the Federal
+[00:17:12.280] Reserve be cutting rates at all this year? You know, it's going to depend. I
+[00:17:18.370] think-I think you have to just take a step back and-and realize this is-this
+[00:17:21.970] is why we are where we are, is, you know, we're going to need to see how
+[00:17:26.330] this evolves. There are cases in which it would be appropriate for us to cut
+[00:17:30.450] rates this year. There are cases in which it wouldn't. And we just don't
+[00:17:33.970] know. Until we know more about how this is going to settle out and what the
+[00:17:39.210] economic implications are for employment, for-and for-for inflation, I couldn't
+[00:17:47.090] confidently say that I know what the appropriate path will be. So, following on
+[00:17:53.440] that, just, you know, so then how does President Trump calling on you
+[00:17:56.860] personally, as well as the Federal Reserve, to make rate cuts affect your
+[00:18:00.280] decision today and affect your job difficulty? It doesn't affect our doing our
+[00:18:04.990] job at all. So, you know, we're always going to do the same thing, which is
+[00:18:08.430] we're going to use our tools to foster maximum employment and price stability
+[00:18:13.510] for the benefit of the American people. We're always going to consider only the
+[00:18:17.590] economic data, the outlook, the balance of risks, and that's it. That's all we're
+[00:18:21.870] going to consider. So, it really doesn't affect either our job or the
+[00:18:24.990] way we do it. Hi, Howard Schneider with Reuters, and thanks for the time. I'm
+[00:18:33.980] wondering, I mean, given the complexity about the first quarter GDP and what
+[00:18:38.260] lies ahead, I'm just wondering what your intuition tells you about the underlying
+[00:18:42.660] direction of the economy right now. Many of your colleagues have said they feel
+[00:18:46.060] growth is slowing. If so, do you have any sense of by how much, to what
+[00:18:51.580] degree, the slowdown may be? What does your gut tell you about how things
+[00:18:55.020] are evolving out there? My gut tells me that uncertainty about the path of the
+[00:19:00.050] economy is extremely elevated and that the downside risks have increased. The
+[00:19:08.240] risk is, as we pointed out in our statement, the risks of higher
+[00:19:13.440] unemployment and higher inflation have risen, but they haven't materialized yet.
+[00:19:18.320] They're really not in the data yet, and that tells me more
+[00:19:23.840] than by intuition, because I think it's obvious, actually, that the
+[00:19:27.720] right thing for us to do is that we're in a good place, our policies in a very
+[00:19:31.720] good place, and the right thing to do is await further clarity. And I,
+[00:19:38.080] you know, there's usually things clarify and that the appropriate direction
+[00:19:44.030] becomes clear. That's what usually happens. Right now, it's very hard
+[00:19:47.470] to say what that would be. In the meantime, the economy is doing fine. Our
+[00:19:51.670] policy isn't, you know, it's not highly restrictive. It's somewhat
+[00:19:55.150] restrictive. It's 100 basis points less restrictive than it was in, you know, last
+[00:19:59.110] summer. So we think it's in a good place, and we think the appropriate
+[00:20:02.750] thing is for us to wait and see and get more clarity about the direction
+[00:20:07.750] of the economy. Well, let me pressure on this idea of the economy being
+[00:20:11.350] fine right now, because reading the beige book very closely the last time
+[00:20:15.590] around, there was a lot of, you know, negative stuff, negative sentiment that
+[00:20:20.230] was in there, and I know that everybody's looking at soft data right
+[00:20:23.510] now. You mentioned it yourself, that the sentiment's sour. But the beige book was
+[00:20:28.990] talking about, you know, the beginnings of layoffs in some industries, prices
+[00:20:33.190] rising in some places, and an awful lot of investment decisions being pushed
+[00:20:38.190] to the sideline. Doesn't that point to a slowdown? It may well. It just hasn't
+[00:20:44.530] shown up yet. And, you know, we all look at all these sentiment and read many,
+[00:20:50.410] many individual comments just to get a better feel. And, you know, businesses
+[00:20:55.170] and households very broadly are concerned and, you know, postponing
+[00:21:01.250] economic decisions of various kinds. And, yes, if that continues and nothing
+[00:21:06.010] happens to sort of alleviate those concerns, then you would expect that to
+[00:21:09.970] begin to show up in economic data. It wouldn't maybe show up overnight, but
+[00:21:13.890] it would show up over weeks and months. And that may be what happens, but
+[00:21:17.690] it hadn't happened yet. And also, there are things that can happen that
+[00:21:20.650] will that will change that narrative. I mean, they haven't happened, but it's
+[00:21:24.890] possible to imagine things that, but in the meantime, yes, we're watching it
+[00:21:28.650] extremely carefully like everyone is, but don't see really much evidence of
+[00:21:33.130] it in actual economic data yet. And by the way, consumers keep spending
+[00:21:38.370] credit card spending. It's, you know, it's still it's still a healthy
+[00:21:42.850] economy, albeit one that is shrouded in some very downbeat sentiment on the
+[00:21:48.090] part of people and businesses. Michael McKee from Bloomberg Radio and
+[00:21:57.710] Television. The Feds been criticized recently by a former governor for what
+[00:22:01.670] he calls mission creep. You take on more problems, use more tools and then
+[00:22:06.350] end up building tools to deal with the fallout of those tools, which then
+[00:22:10.710] makes it a given that you will act more aggressively in the future. Is that
+[00:22:14.510] a fair critique? And is that something you would be looking at in your
+[00:22:18.190] framework review? Sorry, say the critique again. That the Fed has been
+[00:22:22.430] involved in mission, gets involved in using too many new tools to deal with
+[00:22:27.390] problems and to go too far. Is that something that the critique was based
+[00:22:35.870] around the fact that you did QE and QE and QE and and and and went beyond the
+[00:22:45.230] narrow confines of your mandate. So, well, I mean, there are a couple that's
+[00:22:49.110] not really beyond the confines of our mandate. Look, I would say this. We,
+[00:22:52.270] you know, we did things essentially were on an emergency footing for a couple
+[00:22:56.510] of years in the pandemic. And it's very fair and very welcome for people
+[00:23:00.510] to look back over what we did and say, hey, you could have done this
+[00:23:03.550] better and different. And one thing we hear a lot is we could have explained
+[00:23:07.070] QE a little better. We did think we were explaining it in real time. I
+[00:23:11.950] completely accept the thought that we could have explained it better. There's
+[00:23:16.750] a lot of thinking that we went on too long with QE. I can tell you that the
+[00:23:20.510] reason we did was we were concerned that we didn't want a tightening of a
+[00:23:26.510] sharp tightening in financial conditions at a time when we thought the
+[00:23:29.350] economy was still vulnerable. And so we did hold on for a long time to QE
+[00:23:34.510] and we, of course, tapered and everything. And then we immediately went
+[00:23:37.150] into QT. And, you know, we've we're down a couple of trillion. But I
+[00:23:41.990] get the, you know, we certainly with the benefit of hindsight could
+[00:23:45.150] have tapered earlier or faster. That's absolutely right. But this is
+[00:23:49.630] all very welcome. You know, it's, you know, we knew doing this in
+[00:23:53.430] real time that we weren't going to get it perfect. And those kind of
+[00:23:57.830] you know, after action kind of looks are essential. And we're doing
+[00:24:03.590] the same thing, you know, in our review. So I want to do on some
+[00:24:06.710] issues there. The other part of that critique is that you've taken on
+[00:24:11.390] topics that are outside of the mandate, such as climate change and
+[00:24:17.110] trying to ensure that certain groups are benefited by your economic
+[00:24:23.390] policies in terms of employment, et cetera.
+[00:24:26.830] So, OK, on climate, you've heard me say over and over again that we
+[00:24:31.830] will not be climate policymakers and that our role on climate is a
+[00:24:37.790] very, very narrow one. And I think I think that's what we've done.
+[00:24:41.470] We've done really very little on climate. You can say that was that
+[00:24:46.110] little bit that we've done was too much. But I wouldn't want to
+[00:24:49.590] give any impression that that, you know, we take that we've taken
+[00:24:52.950] climate and it's something that we're spending a lot of time and
+[00:24:55.630] energy on. We're not. We have very, very narrow things. We did
+[00:25:00.150] one thing, one guidance for the banks, and then we did one a
+[00:25:04.550] one time stress analysis, climate stress analysis, and that's
+[00:25:08.750] it. And, you know, we dropped out of the network, we're bringing
+[00:25:11.350] the financial system. So we didn't we didn't do much on
+[00:25:15.350] climate. But I do think and I've said this publicly several
+[00:25:19.230] times, I think it's it's a real danger for us to try to take on
+[00:25:23.830] a mandate like that, which is very narrow application to our
+[00:25:28.240] work. And, you know, the risk is if you if you go for things
+[00:25:32.160] that are really not on your mandate, you know, then then why
+[00:25:34.800] are you independent? And, you know, I think that's a very fair
+[00:25:37.760] question. I do think we've we've done a whole lot less on
+[00:25:40.200] climate than some people seem to think we did. Anyway,
+[00:25:44.440] that's what should you have taken on the question of
+[00:25:48.830] bringing unemployment rates down for a specific category?
+[00:25:51.430] We didn't do that. You know, we said what we said was that we
+[00:25:54.590] never targeted any unemployment rate for individual racial or
+[00:25:58.910] demographic groups. What we said was that maximum employment was
+[00:26:02.710] a broad and inclusive goal. And I think what we meant by that
+[00:26:06.550] was we're going to consider the totality of the country. As
+[00:26:11.830] we look at at our maximum employment goal, of course, we
+[00:26:15.390] were never going to target any individual group with that. But
+[00:26:18.190] I think some people, you know, wanted to hear it that way. But
+[00:26:21.390] that's that's not at all what we meant. But so that's just not a
+[00:26:26.790] correct reading of our. But I can see how, you know, maybe
+[00:26:30.070] people found that confusing. And, you know, we have to take
+[00:26:32.390] that into consideration.
+[00:26:38.300] Hi, Chair Powell. Thanks for taking our questions today. I'm
+[00:26:40.620] Jolene Kent with CBS News. You've said wait and see, and
+[00:26:44.580] the economy is doing fine today. But the impact of
+[00:26:47.020] tariffs are already showing up at the ports, businesses big and
+[00:26:50.380] small are telling us that they feel it. And most importantly,
+[00:26:53.140] consumers say they feel it, that the challenges are here and
+[00:26:56.900] there's no waiting and seeing. For Main Street, what is the
+[00:27:00.300] breaking point? What would have to happen to prompt a rate cut
+[00:27:04.100] specifically?
+[00:27:05.460] Well, you know, we really don't see in the data yet big
+[00:27:12.180] economic effects. We see sentiment, their concerns that
+[00:27:16.780] higher prices may be coming or things like that. So people
+[00:27:20.340] they're worried now about inflation. They're worried about
+[00:27:23.260] about, you know, a shock from the tariffs, but they really
+[00:27:26.700] haven't that shock hasn't hit yet. Okay, so, you know, we're
+[00:27:30.380] going to be looking at the at the not just the sentiment
+[00:27:33.060] data, but also the real economic data as we assess
+[00:27:36.900] what it is we should do. And remember, we're there be two
+[00:27:39.620] effects. One of them would be weakening economy, weakening
+[00:27:43.300] economic activity, which translates into higher
+[00:27:45.940] unemployment. And the other would be potentially higher
+[00:27:48.860] inflation. Again, to say it again, the timing, the scope,
+[00:27:53.340] the scale and the persistence of those effects are very,
+[00:27:56.220] very uncertain. So it's not at all clear what the
+[00:28:00.020] appropriate response for monetary policy is at this
+[00:28:03.220] time. And we're, you know, and by the way, our policy is
+[00:28:06.340] in a good place. So we think we can wait and move when
+[00:28:09.420] it is clear what the right thing to do is really not at
+[00:28:11.900] all clear what it is we should do. So people are
+[00:28:15.700] feeling stress and concern, but unemployment hasn't gone
+[00:28:19.220] up. Job creation is fine. Wages are in good shape. You
+[00:28:23.860] know, people are not layoffs or people are not getting
+[00:28:26.380] laid off at high levels. You know, initial claims for
+[00:28:30.300] unemployment are not increasing, you know, in any
+[00:28:33.780] kind of impressive way. So the economy itself is
+[00:28:36.900] still, you know, in solid shape. Just a quick
+[00:28:40.370] follow up. President Trump now says he does not plan
+[00:28:44.210] to remove you as chair. When you heard that, what did
+[00:28:47.690] you think? I don't have anything more for you on
+[00:28:50.010] that. I've pretty much covered that issue. Thank
+[00:28:52.690] you. Hi. Thank you. Chris Ruggaber, Associated
+[00:28:59.310] Press. Well, I just wanted to follow up earlier. It
+[00:29:02.110] sounded like you said it was unclear how the Fed,
+[00:29:07.190] you know, what kind of interest rate decisions you
+[00:29:08.870] will make later this year. So does that, you
+[00:29:11.670] know, in March, there was guidance that two cuts
+[00:29:14.550] might happen, you know, two cuts were penciled in for
+[00:29:16.550] this year. Is that now that guidance from the last
+[00:29:19.590] press conference? Has that been overtaken by
+[00:29:21.310] events at this point? You know, we don't do a
+[00:29:26.040] summary of economic projections at every meeting,
+[00:29:27.840] as you know, we do it every other meeting. And so
+[00:29:30.160] this was the meeting when we didn't do it. And
+[00:29:33.040] I, you know, we don't also kind of poll people.
+[00:29:36.880] So I really, I really wouldn't want to try to
+[00:29:38.680] make a specific projection for where we are
+[00:29:42.360] relative to that. We will in six weeks, we had
+[00:29:44.600] the June meeting and you'll have another SEP.
+[00:29:46.720] I'm not going to hazard a guess here today as
+[00:29:51.400] to what it would be. Again, what I would say is
+[00:29:54.480] that we think our policy rate is in a good place.
+[00:29:57.600] We think it leaves us well positioned to respond
+[00:29:59.520] in a timely way to potential developments. That's
+[00:30:02.640] where we are. And that, depending on the way
+[00:30:05.720] things play out, that could include rate hikes.
+[00:30:07.880] Sorry, rate cuts. You know, we conclude
+[00:30:10.760] conclude us could include us holding where we
+[00:30:13.680] are. We just are going to need to see, you
+[00:30:17.200] know, how things play out before we make those
+[00:30:19.800] decisions.
+[00:30:21.520] Great. And just to follow up on that, I mean,
+[00:30:24.040] when you address the issue of how the Fed
+[00:30:26.840] would handle both rising unemployment and rising
+[00:30:29.200] inflation, how are you thinking about the fact
+[00:30:31.400] that addressing one could exacerbate the other?
+[00:30:34.200] So a rate cut to reduce unemployment could
+[00:30:37.000] worsen inflation and vice versa. How does
+[00:30:38.720] that how do you handle those challenges?
+[00:30:41.860] You've just captured the this is the issue
+[00:30:43.660] with with the two goals being intentioned.
+[00:30:46.380] It's a very challenging question. Now, there
+[00:30:48.940] can be a case in which one goal is very far.
+[00:30:52.780] One variable is very, very far from its goal
+[00:30:55.140] much farther than the other. And if so, you
+[00:30:57.100] concentrate on that one. And frankly, that
+[00:30:59.180] was the case. Well, it wasn't a case where
+[00:31:02.380] they were really intentioned. But if you go
+[00:31:03.820] back to 2022, it was very clear that we needed
+[00:31:07.180] to focus on inflation. The labor market was
+[00:31:09.140] also super tight. So it wasn't wasn't really
+[00:31:12.420] a trade off. You know, if I think you know
+[00:31:16.700] what what our what our framework document says,
+[00:31:19.140] it says we'll look at how far each goal each
+[00:31:21.620] variable is from its goal, and also will
+[00:31:23.780] factor in the time it would take to get
+[00:31:25.620] there. So, you know, that's going to be a
+[00:31:29.020] potentially a very difficult judgment. But the
+[00:31:32.380] data could break in a way that it's not, you
+[00:31:34.420] know, I just don't think we know that the data
+[00:31:36.260] could could easily favor one or the other. And
+[00:31:39.260] right now, there's no no way to no need to
+[00:31:42.420] make a choice and no real basis for doing
+[00:31:45.780] so. Victoria. Hi, Victoria Guido with
+[00:31:52.270] Politico. I wanted to ask, Congress is
+[00:31:55.190] currently debating spending cuts alongside
+[00:31:57.390] expanding extending the tax cuts. And I
+[00:32:00.030] know you've talked many times about how
+[00:32:01.670] the the path of the debt is
+[00:32:02.990] unsustainable. But given that we're also
+[00:32:04.990] talking right now about the economy
+[00:32:06.590] slowing, potentially even recession, I was
+[00:32:09.070] just wondering, is there a danger that
+[00:32:10.590] spending cuts now could could slow growth
+[00:32:12.790] a lot more? You know, we don't we don't
+[00:32:16.270] give Congress fiscal advice. They're
+[00:32:19.790] going to do we take what they do as a
+[00:32:21.590] given and we put it in our models and
+[00:32:23.470] in our our assessment of the economy. So
+[00:32:25.390] I wouldn't want to, you know, speculate
+[00:32:27.870] on that. I mean, I think we do know
+[00:32:29.430] that the debt is on an unsustainable level
+[00:32:31.390] on an unsustainable path, not at an
+[00:32:34.070] unsustainable level, but an
+[00:32:35.070] unsustainable path. And it's up it's on
+[00:32:37.630] Congress to figure out how to how to get
+[00:32:40.590] us back on a sustainable path. And you
+[00:32:42.350] know, it's not up to us to give them
+[00:32:43.630] advice. What do you think that they
+[00:32:45.550] should take macroeconomic conditions into
+[00:32:47.910] account as they look at this? I think
+[00:32:51.010] they don't need my advice and our
+[00:32:52.730] advice on on how to do fiscal policy
+[00:32:54.570] anymore, any more than we need their
+[00:32:55.970] advice on monetary policy. Thanks, Mr.
+[00:33:04.270] Chairman, Andrew Ackerman with the
+[00:33:05.710] Washington Post. In your Jackson Hole
+[00:33:07.670] comments last year, you said you
+[00:33:09.910] would not welcome further cooling in
+[00:33:11.390] labor market conditions. The
+[00:33:12.870] unemployment rate then was 4.2%, which is
+[00:33:15.230] what it is now. Forecasters, many
+[00:33:17.310] forecasters now predict a higher jobless
+[00:33:20.110] rate. How has your tolerance for weakening
+[00:33:22.910] labor market conditions changed compared
+[00:33:25.470] to a year ago? So it was quite a
+[00:33:27.230] different situation. What was happening
+[00:33:30.830] last year is that over the space of
+[00:33:33.590] six, eight, seven months, the
+[00:33:36.390] unemployment rate went up by almost a
+[00:33:38.390] full percentage point, and it was click,
+[00:33:40.710] click, click, click, click each month, and
+[00:33:42.870] you know, everywhere people were
+[00:33:45.550] talking about downside risk to the labor
+[00:33:47.110] market. At the same time, payroll job
+[00:33:49.550] numbers were getting softer and
+[00:33:51.830] softer, so there was a really obvious
+[00:33:53.350] concern about downside risk to the
+[00:33:56.910] labor market, and so at Jackson Hole
+[00:33:59.070] and then in September, you know, we
+[00:34:01.190] wanted to address that forthrightly. We
+[00:34:02.870] wanted to show that we were there for
+[00:34:04.310] the, I mean, we'd been there for
+[00:34:05.750] inflation for a couple of years, and we
+[00:34:07.750] wanted to show also that we're there
+[00:34:09.230] for the labor market, and it was important
+[00:34:11.750] that we send that signal. Fortunately,
+[00:34:13.670] since then, the labor market has really,
+[00:34:15.830] in the unemployment rate, have really
+[00:34:17.750] been moving sideways at a level that is,
+[00:34:19.910] you know, well in the range of mainstream
+[00:34:22.390] estimates of maximum employment, so that
+[00:34:24.910] concern has gotten a lot less. So, you
+[00:34:29.430] know, you're at 4.2 percent
+[00:34:30.670] unemployment. I think we were in a very
+[00:34:32.510] different situation. Now we have a
+[00:34:33.950] situation where, you know, the risks to
+[00:34:36.230] higher inflation and higher unemployment
+[00:34:38.230] have both gone up, as we noted in our
+[00:34:40.350] statement, and we've got to monitor both
+[00:34:42.270] of those. We actually have a
+[00:34:43.950] potential situation where there may be a
+[00:34:46.430] trade-off or tension between the two.
+[00:34:48.030] Potentially. We don't have it yet. We may
+[00:34:50.390] not have it, but that's what we have,
+[00:34:52.310] and that's why I think it's a very
+[00:34:53.390] different situation. I mean, I guess I
+[00:34:55.390] want to follow up by asking how much
+[00:34:56.870] of a rise in the jobless rate you
+[00:34:58.550] would, you could tolerate it. I can't, I
+[00:35:00.990] can't give you, you know, I'm not going
+[00:35:03.070] to try to give you a specific number. I'll
+[00:35:04.590] just say, we're got, we have to now be
+[00:35:06.510] looking at both variables, and which of
+[00:35:08.310] them is, is, you know, demanding, if one of
+[00:35:11.950] them is demanding our focus more than
+[00:35:13.750] the other, that would tell us what to do
+[00:35:15.910] with policy. If they're more or less, you
+[00:35:18.430] know, equally distant and equally or not
+[00:35:22.110] distant, then we don't have to make that
+[00:35:24.310] assessment. You know, the assessment is
+[00:35:26.110] you wait. So, I'm not going to try to be
+[00:35:29.350] really specific about what we need to
+[00:35:30.830] see in terms of a number, but if, look,
+[00:35:33.590] if we, if we did see, you know, significant
+[00:35:35.830] deterioration in the labor market, of
+[00:35:38.270] course, that's an, that's one of our two
+[00:35:39.990] variables, and we would look to be able
+[00:35:41.910] to support that. You'd hope that it
+[00:35:43.470] wasn't also coming at a time when
+[00:35:44.910] inflation was getting very bad, and
+[00:35:47.470] again, we're speculating here. We don't
+[00:35:50.190] know this. We don't know any of these
+[00:35:51.430] things. It's, it's very hypothetical. We're
+[00:35:54.830] just going to have to wait and see
+[00:35:55.910] how that, how it plays out. Thanks. Claire
+[00:36:04.250] Jones, Financial Times. In terms of
+[00:36:07.330] getting some clarity, we've got some
+[00:36:10.010] talks at the weekend in Geneva between
+[00:36:12.290] the US and China. A lot of economists
+[00:36:15.370] are, are attaching an awful lot of
+[00:36:17.490] importance to how, what we hear from those
+[00:36:20.210] talks. How much importance are you
+[00:36:22.410] attaching to them in terms of judging
+[00:36:24.330] what will happen to the US economy
+[00:36:26.250] going forward? And just in, in a similar
+[00:36:28.810] vein, you know, some economists are
+[00:36:31.890] saying it's days, not weeks that we
+[00:36:35.250] have until we start to put the US
+[00:36:37.450] economy at risk of seeing the sort of
+[00:36:39.370] pandemic era shortages and higher
+[00:36:42.450] prices if we don't kind of soothe
+[00:36:46.250] relations between the US and China. So
+[00:36:48.610] it'd be good to have your view on that too.
+[00:36:50.130] So, you know, these are not talks that
+[00:36:53.250] we're in any way involved in, so I
+[00:36:54.690] really can't comment directly on them.
+[00:36:56.410] So, but what I will say is this, you
+[00:36:58.130] know, we had, coming out of the March
+[00:37:00.330] meeting, we, we, the public generally had
+[00:37:03.490] an assessment of where tariffs were
+[00:37:05.090] going and then April 2 happened and it
+[00:37:07.050] was really substantially larger than,
+[00:37:09.090] than anticipated in, in the forecasts
+[00:37:11.530] that I had seen and in our forecasts. So,
+[00:37:13.770] and now we, and now we have a different,
+[00:37:16.170] we're in a new phase where it seems to
+[00:37:18.410] be we're entering a new phase where the
+[00:37:19.810] administration is entering into
+[00:37:21.850] beginning talks with a number of our
+[00:37:24.290] important trading partners and that's,
+[00:37:26.730] that has the potential to change the
+[00:37:29.650] picture materially or not. And so I
+[00:37:32.250] think it's, it's going to be very
+[00:37:33.610] important how that, how that shakes out,
+[00:37:35.330] but I, you know, we simply have to wait
+[00:37:37.210] and see how it works out. It certainly
+[00:37:39.650] could change the picture and we're,
+[00:37:41.210] we're mindful of not trying to make
+[00:37:43.290] conclusive judgments about what will
+[00:37:45.290] happen at a time when the, you know,
+[00:37:48.090] when the facts are changing.
+[00:37:50.990] And just on the, the, the, the
+[00:37:53.230] falling chip in volumes from China over
+[00:37:55.390] these tensions, I mean, do you share
+[00:37:57.590] that concern that we could start
+[00:37:59.110] seeing good shortages and higher
+[00:38:01.350] prices in the coming weeks if this
+[00:38:03.630] isn't resolved very quickly?
+[00:38:05.590] You know, I don't want to get my,
+[00:38:07.670] we're not, we shouldn't be involved
+[00:38:09.270] even verbally in the questions about
+[00:38:10.990] the timing of these things. Yes,
+[00:38:12.630] we're, of course we follow all that data.
+[00:38:14.790] We see the shipping data, we see all that,
+[00:38:16.590] but ultimately this is for the
+[00:38:18.470] administration to do. This is,
+[00:38:21.710] you know, this is their, their mandate,
+[00:38:23.750] not ours. And I know they're,
+[00:38:25.790] as you can see, they're again having,
+[00:38:27.630] beginning to have talks with,
+[00:38:29.150] with many nations and that has the
+[00:38:31.950] potential to change the picture
+[00:38:34.430] materially. So we'll just have to wait and see.
+[00:38:44.330] Coske, coming with Nikkei,
+[00:38:45.770] thank you for doing this.
+[00:38:47.330] The volume of imported goods increased
+[00:38:50.650] significantly in the first quarter.
+[00:38:53.570] Do you think that this decision could cause
+[00:38:55.770] a delay in the impact of tariff on
+[00:38:58.490] inflation and does this mean that
+[00:39:02.330] it will take longer time to reduce uncertainty?
+[00:39:07.180] The decision we made today, which decision?
+[00:39:11.120] So the future decision.
+[00:39:13.630] So the volume of imports, imported goods
+[00:39:18.300] has increased significantly.
+[00:39:20.940] So the impact of the imported
+[00:39:25.820] inflation may delay.
+[00:39:28.100] So what is the impact to your future decision?
+[00:39:33.940] Okay, so, I mean, I think we,
+[00:39:37.220] we think that the, you know,
+[00:39:40.590] there was a big spike in imports, right?
+[00:39:42.990] Very big, historically large, really,
+[00:39:45.430] and to beat tariffs.
+[00:39:47.230] And now that should actually reverse so that it's,
+[00:39:50.350] you know, it's the difference between
+[00:39:51.630] its exports minus imports.
+[00:39:53.790] So, and imports were huge.
+[00:39:56.190] And so that it conveyed a very negative contribution
+[00:39:59.310] to US GDP, annualized GDP in the first quarter,
+[00:40:03.710] as we all know.
+[00:40:04.830] So that could, in the second quarter,
+[00:40:07.670] be reversed so that we have, you know,
+[00:40:10.830] an unusually large contribution to,
+[00:40:13.590] usually positive, that's very likely
+[00:40:15.270] as imports drop sharply.
+[00:40:18.030] You could also have, you know,
+[00:40:19.510] very likely you'll have restatements
+[00:40:22.190] of the first quarter.
+[00:40:25.270] It'll turn out that consumer spending was higher.
+[00:40:27.710] It'll turn out that inventories were higher.
+[00:40:29.510] And so you'll see those data revised up.
+[00:40:32.790] It may actually go into the third quarter too.
+[00:40:34.830] And so I think it's going,
+[00:40:36.030] this whole process is going to a little bit
+[00:40:40.030] make it harder to make a clean assessment of US demand.
+[00:40:43.430] I mentioned private domestic final purchases,
+[00:40:46.550] which doesn't have inventories government
+[00:40:49.070] or inventories government.
+[00:40:54.200] Anyway, it's a cleaner read on private demand.
+[00:41:00.040] But that too probably was flattered a little bit
+[00:41:03.440] by strong demand for imports to be tariff.
+[00:41:08.120] So that might overstate, it's a really good reading,
+[00:41:10.960] 3% PDF in the first quarter,
+[00:41:12.800] that might actually overstate.
+[00:41:13.800] So it's not really going to,
+[00:41:15.160] I don't think it's going to affect our decisions.
+[00:41:17.160] I will just say though, that it's a little confusing
+[00:41:19.320] and it's probably less confusing to us
+[00:41:21.960] than it would be to the general public
+[00:41:24.080] as we try to explain this.
+[00:41:25.360] You know, it's complicated
+[00:41:26.680] and GDP is sending a signal,
+[00:41:29.600] PDFP is sending a signal.
+[00:41:32.280] It's a little bit confusing,
+[00:41:33.320] but I think we understand what's going on.
+[00:41:34.920] It's not really going to change things for us.
+[00:41:41.590] Courtney Brown from Axios.
+[00:41:44.030] I guess, we talked about some of the indications
+[00:41:47.230] of potential layoffs, price hikes and economic slowdown,
+[00:41:51.950] all being evident in the soft data.
+[00:41:54.590] I'm curious why the Fed needs to wait
+[00:41:57.190] for that to translate into hard data
+[00:42:00.630] to make any type of monetary policy decision,
+[00:42:04.950] especially if the hard data is not as timely
+[00:42:08.510] or might be warped by tariff related effects.
+[00:42:13.030] Are you worried that the soft data
+[00:42:14.790] might be some sort of false warning?
+[00:42:18.420] No, I mean, look at the state of the economies.
+[00:42:22.340] The labor market is solid, inflation is low.
+[00:42:25.080] We can afford to be patient as things unfold.
+[00:42:27.100] There's no real cost to our waiting at this point.
+[00:42:30.500] Also, the sense of it is,
+[00:42:32.860] we're not sure what the right thing will be.
+[00:42:35.580] There should be some increase in inflation.
+[00:42:37.660] There should be some increase in unemployment.
+[00:42:39.460] Those call for different responses.
+[00:42:41.580] And so, until we know,
+[00:42:43.260] potentially call for different responses.
+[00:42:45.300] And so, until we know more,
+[00:42:49.140] we have the ability to wait and see.
+[00:42:51.700] And it seems to be a pretty clear decision.
+[00:42:54.140] Everyone on the committee supported waiting.
+[00:42:56.460] And so, that's why we're waiting.
+[00:43:00.730] Just a very quick follow up.
+[00:43:03.250] There was this sort of vibe session, if you will,
+[00:43:06.490] where the sentiments expressed in soft data
+[00:43:08.890] did not translate into the hard economic data.
+[00:43:12.730] Are you, how are you thinking about that
+[00:43:15.290] when interpreting some of the signs
+[00:43:17.350] in the softer survey data?
+[00:43:19.450] You know, I think going back a number of years,
+[00:43:23.510] the link between sentiment data
+[00:43:26.510] and consumer spending has been weak.
+[00:43:29.070] It's not been a strong link at all.
+[00:43:31.990] On the other hand, we haven't had a move
+[00:43:33.950] of this speed and size.
+[00:43:37.350] So, it wouldn't be the case that we're looking at this
+[00:43:40.750] and just completely dismissing it.
+[00:43:42.510] But, it's another reason to wait and see.
+[00:43:46.430] You're right though,
+[00:43:47.270] we had a couple of years during the pandemic
+[00:43:49.330] where people were saying just very downbeat surveys
+[00:43:54.030] and going out and spending money.
+[00:43:55.630] So, that can happen.
+[00:43:57.510] That may happen to some degree here.
+[00:43:59.030] We just don't know.
+[00:43:59.870] This is an outsized change in sentiment though.
+[00:44:02.990] And so, none of us is looking at this
+[00:44:05.550] and saying that we're sure one way or the other.
+[00:44:08.710] We're not.
+[00:44:11.130] Matt.
+[00:44:14.440] Thanks, Chair Powell.
+[00:44:15.280] Matt Egan with CNN.
+[00:44:16.900] So, you mentioned earlier that you're monitoring
+[00:44:19.340] the shipping data and we have seen in the shipping data
+[00:44:22.700] that imports from China into the Port of Los Angeles
+[00:44:25.620] have plunged and that has raised concerns
+[00:44:28.380] about potential shortages.
+[00:44:30.600] What tools, if any, does the Fed have
+[00:44:33.480] to ensure that prices and inflation expectations
+[00:44:37.400] don't get out of hand
+[00:44:38.960] if tariffs do cause significant supply chain disruptions?
+[00:44:44.870] I mean, we don't have the kind of tools
+[00:44:47.990] that are good at dealing with supply chain problems.
+[00:44:50.550] We don't have that at all.
+[00:44:51.470] That's a job for the administration
+[00:44:53.830] and for the private sector more than anything.
+[00:44:56.510] What we can do with our interest rate tool
+[00:44:59.530] is we can support, be more or less supportive of demand.
+[00:45:02.890] And that'd be a very inefficient way
+[00:45:04.730] to try to fix supply chain problems.
+[00:45:07.170] But, you know, we don't see the inflation yet.
+[00:45:11.090] We're, of course, reading the same stories
+[00:45:12.950] and watching the same data as everybody else.
+[00:45:15.490] And, you know, right now we see inflation, you know,
+[00:45:19.920] kind of moving sideways at a fairly low level.
+[00:45:22.620] If I could follow up on that.
+[00:45:23.740] President Trump has indicated that
+[00:45:25.420] he will likely name a replacement for you
+[00:45:28.140] when your term as chair expires next year.
+[00:45:30.820] But your position on the board
+[00:45:32.820] runs through January, 2028, I believe.
+[00:45:35.740] Would you consider remaining on the Fed board
+[00:45:38.980] even if you're no longer chair?
+[00:45:40.980] So I don't have anything for you on that.
+[00:45:42.780] My whole focus is on, and my colleague's focus is all on,
+[00:45:47.820] you know, trying to navigate this tricky passage
+[00:45:51.500] we're in right now, trying to make the right decisions.
+[00:45:54.140] You know, we wanna make the best decisions
+[00:45:56.140] for the people that we serve.
+[00:45:57.880] That's what we think about day and night.
+[00:45:59.520] And this is a challenging situation
+[00:46:01.640] and that's 100% of our focus right now.
+[00:46:04.930] Let's go to Jennifer for the last question.
+[00:46:08.020] Thank you so much, Chair Powell.
+[00:46:08.940] Jennifer Schonberger with Yahoo Finance.
+[00:46:11.220] Public records of your schedule so far this year
+[00:46:14.100] show no meetings with President Trump.
+[00:46:16.940] Past presidents Obama, Bush, and Clinton
+[00:46:18.940] have all met with Fed chairs.
+[00:46:21.020] And you met with Trump during his first term.
+[00:46:23.620] Why haven't you asked for a meeting yet
+[00:46:25.300] with the president?
+[00:46:27.140] I've never asked for a meeting with any president.
+[00:46:29.420] And I never will.
+[00:46:30.420] It's not, I wouldn't do that.
+[00:46:32.140] There's never a reason for me to ask for a meeting.
+[00:46:34.240] It's always been the other way.
+[00:46:35.940] So would you want to meet with him
+[00:46:37.460] if given the opportunity to get more information?
+[00:46:39.740] It's never an initiative that I take.
+[00:46:41.980] It's always an initiative.
+[00:46:43.600] I don't think it's up to a Fed chair
+[00:46:46.020] to seek a meeting with the president,
+[00:46:47.500] although maybe some have done so.
+[00:46:48.780] I've never done so and I can't imagine myself doing that.
+[00:46:52.180] I think it's always comes the other way.
+[00:46:54.700] A president wants to meet with you,
+[00:46:56.180] but that hasn't happened.
+[00:46:57.540] And if I could just ask one question,
+[00:46:58.740] monetary policy, when it is time to cut rates,
+[00:47:01.460] how will you determine how far down rates
+[00:47:03.840] will have to come to try to keep a balance on the inflation
+[00:47:07.180] mandate as employment weekends?
+[00:47:12.140] I think once you have a direction, a clear direction,
+[00:47:14.420] you can make a judgment about how fast to move
+[00:47:16.940] and that kind of thing.
+[00:47:18.020] So it's really the harder question is the timing,
+[00:47:21.860] I think, and when will that become clear?
+[00:47:24.540] And fortunately, as I mentioned, we
+[00:47:27.620] have our policy in a good place,
+[00:47:28.820] the economy's in a good place,
+[00:47:30.780] and it's really appropriate, we think,
+[00:47:34.300] for us to be patient and wait for things to unfold
+[00:47:37.340] as we get more clarity about what we should do.
+[00:47:39.780] Thanks very much.

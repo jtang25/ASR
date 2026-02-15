@@ -1,0 +1,596 @@
+[00:00:03.790] Good afternoon. My colleagues and I remain squarely focused on achieving our dual mandate
+[00:00:11.040] goals of maximum employment and stable prices for the benefit of the American people. The
+[00:00:17.070] economy is strong overall and has made significant progress toward our goals over the past two
+[00:00:24.390] years. Labor market conditions have cooled from their formerly overheated state and
+[00:00:30.100] remain solid. Inflation has moved much closer to our 2 percent longer-run goal, though it
+[00:00:36.660] remains somewhat elevated. In support of our goals, today the Federal Open Market Committee
+[00:00:42.210] decided to leave our policy interest rate unchanged and to continue to reduce our securities
+[00:00:47.510] holdings. I'll have more to say about monetary policy after briefly reviewing economic developments.
+[00:00:56.250] Recent indicators suggest that economic activity has continued to expand at a solid pace.
+[00:01:02.090] Before 2024, as a whole, GDP looks to have risen above 2 percent, bolstered by resilient
+[00:01:08.730] consumer spending. Investment in equipment and intangibles appears to have slowed in
+[00:01:14.480] the fourth quarter, but was strong for the year overall. Following weakness in the middle
+[00:01:20.020] of last year, activity in the housing sector seems to have stabilized. In the labor market,
+[00:01:26.820] conditions remain solid. Payroll job gains averaged 170,000 per month over the past
+[00:01:32.740] three months. Following earlier increases, the unemployment rate has stabilized since
+[00:01:37.710] the middle of last year, and at 4.1 percent in December remains low. Nominal wage growth
+[00:01:44.920] has eased over the past year, and the jobs-to-workers gap has narrowed. Overall, a wide set of indicators
+[00:01:52.710] suggest that conditions in the labor market are broadly in balance. The labor market
+[00:01:58.310] is not a source of significant inflationary pressures. Inflation has eased significantly
+[00:02:05.110] over the past two years, but remains somewhat elevated relative to our 2 percent longer
+[00:02:09.750] run goal. Estimates based on the Consumer Price Index and other data indicate that total
+[00:02:15.130] PCE prices rose 2.6 percent over the 12 months ending in December, and that excluding the
+[00:02:21.090] volatile food and energy categories, core PCE prices rose 2.8 percent. Longer-term
+[00:02:27.780] inflation expectations appear to remain well anchored, as reflected in a broad range
+[00:02:33.340] of surveys of households, businesses, and forecasters, as well as measures from financial
+[00:02:38.300] markets. Our monetary policy actions are guided by our dual mandate to promote maximum employment
+[00:02:45.110] and stable prices for the American people. We see the risks to achieving our employment
+[00:02:50.390] and inflation goals as being roughly in balance, and we are attentive to the risks on both
+[00:02:55.670] sides of our mandate. Over the course of our three previous meetings, we lowered our
+[00:03:01.700] policy rate by a full percentage point from its peak. That recalibration of our policy
+[00:03:07.000] stance was appropriate in light of the progress on inflation and the rebalancing in the labor
+[00:03:11.960] market. With our policy stance significantly less restrictive than it had been and the
+[00:03:17.860] economy remaining strong, we do not need to be in a hurry to adjust our policy stance.
+[00:03:24.870] At today's meeting, the Committee decided to maintain the target range for the federal
+[00:03:28.250] funds rate at 4.25 to 4.5 percent. We know that reducing policy restraint too fast or
+[00:03:36.250] too much could hinder progress on inflation. At the same time, reducing policy restraint
+[00:03:42.890] too slowly or too little could unduly weaken economic activity and employment. In considering
+[00:03:49.680] the extent and timing of additional adjustments to the target range for the federal funds
+[00:03:53.400] rate, the Committee will assess incoming data, the evolving outlook, and the balance
+[00:03:58.680] of risks. We're not on any preset course. As the economy evolves, we will adjust our
+[00:04:06.190] policy stance in a manner that best promotes our maximum employment and price stability
+[00:04:10.750] goals. If the economy remains strong and inflation does not continue to move sustainably
+[00:04:16.340] toward 2 percent, we can maintain policy restraint for longer. If the labor market were to
+[00:04:22.400] weaken unexpectedly or inflation were to fall more quickly than anticipated, we can ease
+[00:04:27.320] policy accordingly. Policy is well positioned to deal with the risks and uncertainties that
+[00:04:32.940] we face in pursuing both sides of our dual mandate. As we previously announced, our five-year
+[00:04:40.270] review of our monetary policy framework is taking place this year. At this meeting,
+[00:04:45.510] the Committee began its discussions by reviewing the context and outcomes of our previous review
+[00:04:50.230] that concluded in 2020, as well as the experiences of other central banks in conducting
+[00:04:55.590] interviews. Our review will again include outreach and public events involving a wide
+[00:05:00.330] range of parties, including Fed Listens events around the country, and a research conference
+[00:05:05.390] in May. Throughout this process, we will be open to new ideas and critical feedback,
+[00:05:11.060] and we will take on board Listens of the last five years in determining our findings.
+[00:05:16.960] We intend to wrap up the review by late summer. I would note that the Committee's 2 percent
+[00:05:21.520] longer-run inflation goal will be retained and will not be a focus of the review.
+[00:05:28.160] The Fed has been assigned two goals for monetary policy, maximum employment and stable prices.
+[00:05:33.100] We remain committed to supporting maximum employment, bringing inflation sustainably to our 2 percent
+[00:05:38.780] goal, and keeping longer-run inflation expectations well anchored.
+[00:05:44.180] Our success in delivering on these goals matters to all Americans. We understand that our actions
+[00:05:49.640] affect communities, families, and businesses across the country. Everything we do is in
+[00:05:54.720] service to our public mission. We at the Fed will do everything we can to achieve
+[00:05:59.910] our maximum employment and price stability goals.
+[00:06:03.130] Thank you. I look forward to your questions.
+[00:06:05.250] Mr. Chairman, Steve Leesman from CNBC. Mr. Chairman, at an event in Davos, or from
+[00:06:17.580] to Davos anyway, the President said he'll demand that interest rates drop immediately.
+[00:06:23.120] So I guess I have a three-part question. Has the President done this to you? Has he
+[00:06:27.180] made that demand? Secondly, what is your response to that? And third, what effect, if
+[00:06:33.500] anything, does a President making these kind of remarks have on policy? Thank you.
+[00:06:39.460] Three questions. I'm seeing it really as one question, though. So I'm not going to have
+[00:06:45.540] any response or comment whatsoever on what the President said. It's not appropriate
+[00:06:50.520] for me to do so. The public should be confident that we will continue to do our work as
+[00:06:55.100] we always have, focusing on using our tools to achieve our goals and really keeping our
+[00:07:01.620] heads down and doing our work. And that's how we best serve the public.
+[00:07:04.460] Could you just comment on whether he's physically communicating his demand to you?
+[00:07:09.050] I've had no contact. Thanks.
+[00:07:11.810] Nick. Nick Temeros, The Wolf Journal. Chair Powell,
+[00:07:18.610] you and several of your colleagues said around the time of the last meeting that your policy
+[00:07:22.570] stance was meaningfully restrictive. Given economic and financial market development since
+[00:07:28.450] then, how has your confidence changed in an assessment that says interest rates are meaningfully
+[00:07:34.570] restrictive? I don't think that my assessment really has
+[00:07:39.210] changed. I mean, a couple of things have happened. We've gotten more strong data, but we've
+[00:07:43.130] also seen rates move up at the long end, which could represent a tightening in financial
+[00:07:48.130] conditions. I think if we look back over the past year or so, we can see that policy
+[00:07:53.530] is restrictive. If you look at the effect of high rates on interest-sensitive spending,
+[00:07:57.370] for example, in housing, and if you look at the achievement of our goal variables, we're
+[00:08:01.490] seeing the economy move toward 2 percent inflation and has moved largely to maximum employment.
+[00:08:08.730] So we really look at the movement toward the goal variables to make that assessment.
+[00:08:14.090] Now, policy is meaningfully less restrictive than it was before we began to cut. It's
+[00:08:18.570] 100 basis points less restrictive. And for that reason, we're going to be focusing
+[00:08:23.650] on seeing real progress on inflation or, alternatively, some weakness in the labor
+[00:08:28.570] market before we consider making adjustments. If I could follow up, does the economy here
+[00:08:34.970] warrant meaningfully restrictive interest rates? And would you judge interest rates
+[00:08:39.210] to still be meaningfully restrictive if you were to lower them by another quarter
+[00:08:42.850] point? So I think our policy stance is very well
+[00:08:47.900] calibrated, as I mentioned, to balance the achievement of our two goals.
+[00:08:53.540] We want policy to be restrictive enough to continue to foster further – further progress
+[00:09:00.900] toward a 2 percent inflation goal. At the same time, we don't need to see further
+[00:09:04.160] weakening in the labor market to achieve that goal. And that's kind of what we've
+[00:09:08.340] been getting. The labor market has really been broadly stable. The unemployment rate
+[00:09:11.940] has been broadly stable now for six months. Conditions seem to be broadly in balance.
+[00:09:17.620] And I'd say you look at the last couple of inflation readings and you see we don't
+[00:09:21.940] overreact to two good readings or two bad readings. But nonetheless, the last couple
+[00:09:26.460] of readings have suggested more positive readings. So I think policy is well positioned.
+[00:09:32.780] Colby Smith with the New York Times. Chair Powell, how should we interpret the removal
+[00:09:41.540] of the line from the statement that inflation has made progress towards the 2 percent goal?
+[00:09:45.940] Is that no longer the case? No. So let me look – if you just look at
+[00:09:50.260] the first paragraph, we did a little bit of language cleanup there. We took out a reference
+[00:09:55.140] to SINCE earlier in the year as it related to the labor market. And we just chose to shorten
+[00:10:01.460] that sentence. Again, I mean, if you look at the sort of
+[00:10:04.820] intermeeting data, it was good. And there was another inflation reading, I guess, just
+[00:10:09.380] before the December meeting. So we've got two good readings in a row that are consistent
+[00:10:13.100] with 2 percent inflation. Again, we're not going to overinterpret
+[00:10:16.100] two good or two bad readings. But this was not meant to send a signal other than this.
+[00:10:21.700] You can take away from all of this that we remain committed to achieving our 2 percent
+[00:10:26.900] inflation goal sustainably. And just to follow up, we've seen inflation
+[00:10:31.220] expectations across a number of measures rise sharply, which has in part been linked to
+[00:10:35.580] tariff concerns. But there's also been this encouraging data that you mentioned in
+[00:10:39.500] terms of CPI and rent indices. So how would you characterize concerns about
+[00:10:44.420] upside risks to inflation across the committee, especially those tied to policies related
+[00:10:49.060] to the Trump administration? Well, I'd say you see expectations moving
+[00:10:54.490] up a little bit at the short end, but not at the long run, which where it really matters.
+[00:10:58.810] And those could be related to could be related to what you mentioned some of the new policies.
+[00:11:04.170] I think where the committee is very much in the mode of waiting to see what policies
+[00:11:10.090] are enacted. We don't know what will happen with tariffs, with immigration, with fiscal
+[00:11:16.570] policy and with regulatory policy. We're only just beginning to see – actually are
+[00:11:22.210] not really beginning to see much. And I think we need to let those policies be articulated
+[00:11:27.450] before we can even begin to make a plausible assessment of what their implications for
+[00:11:31.850] the economy will be. So we're going to be watching carefully.
+[00:11:35.130] And as we always do, this is no different than any other set of policy changes at
+[00:11:38.890] the beginning of an administration. We'll patiently watch and understand and kind of
+[00:11:45.210] not be in a hurry to get to a place of understanding what our policy response should be until
+[00:11:50.970] we see how it plays out. Michael McKee.
+[00:11:57.300] Michael McKee from Bloomberg Television and Radio. You and your colleagues normally condition
+[00:12:02.500] future policy moves with the phrase, if the economy develops as we anticipate. Is it
+[00:12:08.260] fair to say that, since there's a lot unknown about what this administration's fiscal policies
+[00:12:13.580] are actually going to be, that you don't have a medium- to long-term economic forecast
+[00:12:19.020] that you can have confidence in? Or, if that's not true, can you lay out what you think
+[00:12:25.240] is going to happen in the economy, how you see it developing?
+[00:12:28.140] Well, at all times, at all times, forecasts are conditional at a minimum on just a set
+[00:12:35.020] of expectations. And they're highly uncertain in both directions. We know that economic
+[00:12:41.380] forecasting is really difficult beyond just a month or two out. So in the current situation,
+[00:12:49.580] there's probably some elevated uncertainty because of, you know, significant policy shifts in
+[00:12:56.220] those four areas that I mentioned, tariffs, immigration, fiscal policy, and regulatory
+[00:13:03.060] policy. So there's probably some additional uncertainty. But that should be passing. We
+[00:13:06.540] should go through that. And then we'll be back to the regular amount of uncertainty.
+[00:13:10.500] You know, what forecasters are doing, not just us, but everybody's doing, is they've
+[00:13:14.400] got sort of just a set of assumptions about what might happen. But they're really kind
+[00:13:18.820] of in the nature of a placeholder. And meaning, you know, plausible could be, but honestly,
+[00:13:25.060] you wouldn't stand behind it because you just don't know. And so you just don't hold
+[00:13:28.580] waiting to see what comes down. You know, it's a very large economy, and policy is affected
+[00:13:34.740] at the margin. But we'll, you know, we're going to wait and see.
+[00:13:37.580] If I could follow up, the idea that you feel the economy, that policy is restrictive suggests
+[00:13:45.500] that the Fed in general wants to continue to lower interest rates. So when you look
+[00:13:51.060] at the data that you are dependent on, are you looking for data that tell you that
+[00:13:56.540] you can cut, or data that will tell you you should hold?
+[00:14:01.600] You know, we're looking—it's more the other—the way it works is we are looking
+[00:14:07.640] at the data to guide us in what we should do. And, you know, that's what we do.
+[00:14:13.520] And right now, we feel like we're in a very good place. Policy is well positioned.
+[00:14:17.800] The economy is in quite a good place, actually, as well. And what we do expect is to see
+[00:14:24.340] further progress on inflation. And, you know, as I mentioned, as we see that, or if we were
+[00:14:30.740] to see weakening the labor market, that could foster—we could then be in a position of making
+[00:14:35.500] further adjustments. But right now, we don't see that, and we see things as in a really
+[00:14:41.680] good place for policy and for the economy. And so we feel like we don't need to be
+[00:14:45.900] in a hurry to make any adjustments.
+[00:14:48.380] Howard.
+[00:14:50.180] Howard Schneider with Reuters. Thank you very much.
+[00:14:56.400] In 2021, at a central bank conference, you said, quote, throughout my career in both public
+[00:15:01.560] and private sectors, I've seen that the best and most successful organizations are often
+[00:15:05.280] the ones that have a strong and persistent commitment to diversity and inclusion. These
+[00:15:10.320] organizations consistently attract the best talent by investing in and retaining a world-class
+[00:15:15.080] workforce. First question is, do you still believe that? And if so, how do you intend
+[00:15:20.600] to put that belief into practice while remaining consistent with the recent executive order
+[00:15:24.920] prohibiting diversity and inclusion efforts?
+[00:15:28.240] So let me say yes, in answer to your first question. But to the second question, I want
+[00:15:33.400] to say this. We are, like others, we're reviewing the orders and the associated details as they're
+[00:15:38.480] made available. And as has been our practice over many administrations, we are working
+[00:15:43.320] to align our policies with the executive orders as appropriate and consistent with applicable
+[00:15:48.400] law. And I want to add that I'm not going to have anything more specific for you today
+[00:15:53.680] on this whole set of issues.
+[00:15:55.240] Well, if I could just follow up quickly on that. I'm wondering how you're getting that
+[00:15:59.680] to be consistent with the Dodd-Frank law's stipulations about maintaining an Office of
+[00:16:05.880] Minority and Women's Inclusion.
+[00:16:08.040] So I did, I did mention consistent with applicable law, right?
+[00:16:13.170] Which is governing?
+[00:16:14.170] Elizabeth. Thanks so much. Elizabeth Scholze with ABC News. Just to follow up on Steve's
+[00:16:23.370] question, what reassurance can you give the American public that the Fed will continue
+[00:16:28.170] to operate independent of politics under this administration?
+[00:16:32.370] You know, as I've said countless times over the years, this is who we are. This is what
+[00:16:38.360] we do. We study the data. We analyze how it will affect the outlook and the balance
+[00:16:44.560] of risks. And we use our tools to try to, given our best understanding, our best thinking,
+[00:16:49.880] try to achieve our goals. That's what we do. That's always what we do. Don't look
+[00:16:53.320] for us to do anything else. And that's, you know, lots of research shows that's the, that's
+[00:16:57.720] the best way for a central bank to operate. That'll give us the best possible chance to
+[00:17:01.920] achieve these goals for the benefit of the American people. That's always what we're
+[00:17:05.280] going to do. And people should have confidence in that, as I, as I said a few minutes ago.
+[00:17:10.200] You've said that the Fed is in wait and see mode based on the policies that come
+[00:17:13.560] out of this administration. Has the Fed started to model what policies like mass deportations,
+[00:17:19.960] changes in immigration policy specifically, what look like for the workforce and for inflation?
+[00:17:25.280] So one of the things our staff does is they, they look at a range of possible outcomes
+[00:17:31.440] and they tend to go from really good to really bad. And you know, it's one of the best things
+[00:17:36.320] that they do. And in each teal book, you can look at the five year old teal books
+[00:17:39.800] and see their alternative simulation. So that's what they do. They, you know, it'll
+[00:17:43.200] be a baseline and then they'll show six or seven alternative scenarios, including really
+[00:17:47.920] good ones and not so good ones. And what those do is they spark, you know, the policymakers
+[00:17:54.240] to sort of think and understand about the, you know, the, the uncertainties that surround
+[00:17:58.840] this. So yes, we, we, the staff does that and we, we're all well aware that there are,
+[00:18:03.840] that the range of possibilities is always broad and not, not just now, but always.
+[00:18:10.160] And you have to, it's hard to be open to just how, how broad the possibilities are
+[00:18:16.120] for an economy. You know, no one saw the pandemic coming and it was, you know, it changed
+[00:18:19.520] everything. So things happen and, but yes, we do, we do do that. But it's, it's, it's,
+[00:18:25.520] it's different. It's one thing to do that, to make assessments about what might happen
+[00:18:29.800] and begin to think about what you might do in that case, but you don't act until you,
+[00:18:34.840] until you see much more than we see now.
+[00:18:39.640] Katarina Sariva, Bloomberg News. You know, last month you talked about a future rate cut
+[00:18:51.760] as being pretty, you know, significantly predicated on more progress and inflation. With the characterization
+[00:19:00.080] of the labor market in the statement today, would you say that that's even more so the
+[00:19:04.800] case now?
+[00:19:05.800] I'd say it's the same. You know, we, we want to see, you know, further progress on
+[00:19:10.600] inflation. And, you know, the story's there. It's, it's, we're just going to have to see
+[00:19:17.720] the data. At the end of the day, it comes down to 12 month inflation because that takes
+[00:19:22.160] out the seasonality issues that may exist. And, you know, we're just going to need to
+[00:19:27.560] see that. We think that we think we see the pathway for that to happen. One, one
+[00:19:31.840] example, a key example is that you now do see owners equivalent rent and, you know,
+[00:19:38.560] closing services the way it's calculated for PCE. You see that coming down pretty steadily
+[00:19:42.560] now. And that's the, that's the place where most of the remaining gap is. In addition,
+[00:19:46.800] a big part of the overrun, as you will know, was from non-market services, which don't
+[00:19:51.120] tend to send much signal. So you can look through all that and think, okay, that then
+[00:19:56.160] we seem to be set up for further progress. But being seen to set up for it is one thing,
+[00:20:01.400] having it as another. So we're going to want to see further, further progress on
+[00:20:05.000] inflation. Remember, we're not, you know, we're, we're under two percent, but our
+[00:20:09.520] goal is two percent and we do mean to get back sustainably to two percent. And, and
+[00:20:13.820] in terms of the labor market, I mean, how is that broadly, you know, you said a
+[00:20:18.460] broad set of indicators show that it's in pretty solid place. Was there broad
+[00:20:23.060] agreement on that? There's been a few underlying indicators that are showing
+[00:20:27.980] perhaps some weakness, a low hiring rate, you know, workers reporting that it's
+[00:20:32.740] increasingly difficult to find a job. Is that of concern to the committee? So
+[00:20:37.740] you're right. I mean, we look at, of course, a very broad range. So it starts with
+[00:20:41.620] unemployment, sorry, with, yeah, with the unemployment rate, employment
+[00:20:45.580] participation, wages, job quits, or people quitting, that kind of thing, the ratio
+[00:20:52.300] of vacancies to unemployed. We look at all those things. And you, you, you put your
+[00:20:56.180] finger, though, on it's a low, it's a low hiring environment. So if you have a
+[00:20:59.780] job, it's all, it's all good. But if you, if you have to find a job, if the job
+[00:21:04.900] finding rate, the hiring rates have come down. And that's, that's more typical of a,
+[00:21:09.060] let's say, let's say that the unemployment, that the, that the labor
+[00:21:12.660] market is at a sustainable level. It's not overheated anymore. We don't think we
+[00:21:16.680] need it to cool off anymore. We do watch it extremely carefully. It's one of our
+[00:21:20.320] two goal variables. But yeah, I'd say we watch those things quite carefully. But
+[00:21:25.540] nonetheless, overall, look at the aggregate data in the labor market, it
+[00:21:31.100] does seem to, the labor market doesn't seem to be pretty stable and broadly
+[00:21:34.700] in balance when you've got an unemployment rate that is, that has been
+[00:21:38.620] pretty stable now for, for a full half a year. Thank you. Thank you, Mr. Chairman,
+[00:21:47.970] Edward Lawrence with Fox Business. On employment, now you said there's a
+[00:21:50.930] broad range of possibilities, but last September you said, quote, we understand
+[00:21:54.890] that there's been a quite of influx across the borders, and that has
+[00:21:57.930] actually been one of the things that's allowed unemployment rate to rise. Now
+[00:22:02.790] that the flow of the border has slowed, and we're seeing deportations, how do you
+[00:22:06.330] expect the unemployment rate to react? You know, so what's happening is that the
+[00:22:10.810] flow across the border have decreased very significantly, and there's every
+[00:22:14.850] reason to expect that to continue. And so, but job creation has come down a bit
+[00:22:21.370] too. So, you know, if those two things come down together, that, that, that
+[00:22:26.970] sort of can be a reason for the unemployment rate to stabilize. In other
+[00:22:31.130] words, the break-even rate, as, as population growth slows, the break-even
+[00:22:35.410] rate that you need in new jobs to make, to, to, to make jobs for, for workers declines
+[00:22:42.210] as well. So that seems to be something about what's happening. You do see a
+[00:22:46.450] very, a very flat unemployment rate at a time when you've seen significant
+[00:22:50.890] declines. I want to ask you about Fed employment. I know that tax money is
+[00:22:54.850] not used here, but Elon Musk alleges that the Fed is, quote, absurdly overstaffed.
+[00:22:59.410] We've seen the executive branch push to reduce the federal workforce. I just want
+[00:23:03.650] to get your reaction. You know, we, we run a very careful budget process. We're
+[00:23:08.200] fully aware that would, that, you know, we owe the, we owe that to the public, and
+[00:23:12.280] we believe we do that. I've got no further comment than that. Thanks. Chris.
+[00:23:18.500] Chris Ruchaber at Associated Press. President Trump has said he will lower
+[00:23:24.460] inflation by reducing gas and energy costs. Do you see such costs as a
+[00:23:30.700] particular driver of inflation, and would lowering them have a dramatic effect?
+[00:23:34.180] Chris, I'm not gonna, I'm not gonna react or discuss anything that any elected
+[00:23:39.060] politician might say, so I'll give you a mulligan. Thank you. Well, nearly two
+[00:23:44.220] weeks ago, the Fed said it was withdrawing from the network for
+[00:23:46.620] greening the financial system, even as, you know, even as we have significant
+[00:23:50.620] wildfires in Los Angeles doing billions of dollars in damage. And, of course, the
+[00:23:54.380] NGFS, as you know, is a group to talk about how the financial system could
+[00:23:58.140] address climate change. Many commentators did see the timing as political. Why did
+[00:24:02.700] you leave that organization? Can you explain that decision? Sure, I'd be glad
+[00:24:06.580] to. So we considered this, you know, really at length, and we did decide to
+[00:24:10.540] withdraw from the NGFS. And really the reason is that the, the, the work that
+[00:24:16.100] the NGFS does has broadened very significantly. Think about nature-related
+[00:24:21.670] risks and biodiversity and things like that. In addition, the, the work of the
+[00:24:27.750] NGFS is, is in, in significant part intended to, and this is a quote,
+[00:24:32.070] mobilize mainstream finance to support the transition toward a sustainable
+[00:24:36.070] economy. So we joined to get the benefit of understanding what other central banks
+[00:24:40.910] were doing and, and seeing research and things like that. I think this is just
+[00:24:46.550] way beyond any plausible mandate that you could attribute to the Fed. And so we
+[00:24:51.950] have a quite narrow role, as I've said many times, and I think that, that the
+[00:24:57.030] activities of the NGFS are not a good fit for the Fed, given our current
+[00:25:01.990] mandate and authority. So, you know, and I just think it was time to acknowledge
+[00:25:05.270] that, you know, the, the process, this process dates back, thinking about it,
+[00:25:09.830] dates back a couple of years. I made the decision to bring this to the board,
+[00:25:14.390] you know, some months ago. It just, it just, the process just took time to get here.
+[00:25:19.350] And, and this is when, this is when we, we got it and voted on it. So, and I'm
+[00:25:23.550] aware of how it can look, but it was really not driven by politics. It was
+[00:25:26.350] driven by kind of the disconnect between the work of the NGFS and our mandate.
+[00:25:30.790] Other central banks have different mandates and belong to the NGFS. We
+[00:25:34.230] have no, no criticism of them, but it just isn't, it's not right for the Fed.
+[00:25:39.540] Andrew. Thanks, Andrew Ackerman with the Washington Post. I'm wondering if you
+[00:25:47.170] talk more about what further progress would look like for consumers. Well,
+[00:25:54.940] 2% inflation down to inflation down to 2% sustainably is what we're trying
+[00:26:00.180] to achieve. You know, we're, we're somewhat above that, as you know. And
+[00:26:05.660] you know, we want to see, you know, serial readings that suggest that we're
+[00:26:10.060] making further progress on inflation. That's what we want to see. And
+[00:26:12.900] consumers will, we'll, we'll pick that up, of course, in the things that
+[00:26:16.300] they buy at the grocery store or at the store. The other thing I wanted to ask
+[00:26:20.140] was just how far away you think you are from neutral. Yeah. You can't know
+[00:26:26.680] with any precision, of course, as I like to say that, you know, that you know
+[00:26:31.400] the neutral rate by its works. So I think, you know, at 4.3%, we're, we're
+[00:26:36.840] above pretty much everyone on the committee's estimates of the longer run
+[00:26:42.020] neutral. Um, I think our eyes are telling us that our policy is having
+[00:26:47.380] the effects on the economy. That's really the question we ask. You know,
+[00:26:50.420] you can consult models, empirical models, theoretical models. You really
+[00:26:54.460] have to just look out the window and see how your how your policy rate is
+[00:26:58.940] affecting the economy. And I think we see that it's having meaningful
+[00:27:02.380] effects in bringing inflation under control. It has helped bring the labor
+[00:27:07.060] market into balance as well. So that's what we think. I would say we're
+[00:27:11.220] meaningfully above it. I, I am, I have no illusion that that anyone knows
+[00:27:17.060] precisely how much that is. And, but, you know, not knowing that and having
+[00:27:21.420] cut 100 basis points means that it's appropriate that we, that we not be in
+[00:27:27.300] a hurry to make further adjustments. Victoria. Victoria Guido with Politico.
+[00:27:35.820] So as a general matter, when it comes to executive orders and OMB memos,
+[00:27:41.860] do those always apply to the Fed? Sometimes never. Or do you just often
+[00:27:47.660] voluntarily comply? What is, what is the legality there? So it's been, it's been
+[00:27:51.740] our practice, as I mentioned, to work to align our policies to those that are
+[00:27:57.460] mentioned in the executive orders. And that's, I'm just going to leave it at
+[00:28:00.340] that. As I mentioned, I'm not going to, I'm not going to go any deeper than
+[00:28:04.380] that or get into any deeper into this set of issues today. Um,
+[00:28:14.410] Claire Jones from the Financial Times. Um, two questions if I may on tariffs. Um,
+[00:28:19.650] well, first of all, we've seen global trade wars before, notably in 2019,
+[00:28:24.010] last time around, but then we were in a very different place on both
+[00:28:28.090] inflation and growth. If we see tariffs of the same sort of magnitude
+[00:28:33.510] that we got then, which I know is a big if, um, what do you think might
+[00:28:38.270] be different this time around? And secondly, Tif Macklem said there was
+[00:28:43.990] no doubt that the threat of tariffs was a big driver of the cut by the
+[00:28:49.670] Bank of Canada today. What sort of information would the Fed need to see
+[00:28:54.790] on tariffs before it was willing to take such a preemptive move? Thank
+[00:28:59.990] you. What sort of information would you need to see on tariffs? Would
+[00:29:04.790] you need to see a strategy, actual implementation, actual movement of
+[00:29:09.310] inflation expectations before you're actually willing to change the path
+[00:29:13.910] of monetary policy on the basis of it? Yeah. So we just so first of all,
+[00:29:18.830] think things are a little different now. We've just come through a high
+[00:29:21.190] inflation period. Um, and you can argue that both ways. You can, you
+[00:29:25.710] can say that companies have figured out that they do like to raise
+[00:29:28.190] prices, but we also hear a lot from companies these days that consumers
+[00:29:32.550] have really had it with price increases. And so I don't know how that
+[00:29:35.510] shakes out. Nonetheless, you're coming through a situation where we're not
+[00:29:38.750] quite back to 2% and that that's just different. In addition, you know,
+[00:29:42.710] the trade kind of footprint of trade is has changed a lot as trade is now
+[00:29:48.310] spread around that, you know, it's not as concentrated in China as it was.
+[00:29:52.630] There's a lot more manufacturing moved to Mexico and other places. So there
+[00:29:56.990] were differences. And I just think the possible range of possibilities is
+[00:30:02.230] very, very wide. We just don't know. And I don't want to start
+[00:30:05.670] speculating as tempting as it is because we really don't know. And we
+[00:30:10.550] didn't know, by the way, in 2000 and I guess, uh, 18. Yeah, we didn't
+[00:30:16.740] really know. And, uh, you know, again, the range of possibilities very,
+[00:30:22.180] very wide. We don't know what's going to be tariff. We don't know for
+[00:30:26.100] how long or how much what countries we don't know about retaliation. We
+[00:30:30.420] don't know how it's going to transmit through the economy to consumers.
+[00:30:35.220] That's that really doesn't remain to be seen. You know, there are lots
+[00:30:38.460] of places where that where that where that price increase from the
+[00:30:42.900] tariff can show up between the manufacturer and the consumer. Just so
+[00:30:48.580] many variables. So we're just gonna have to wait and see. And, you know, the best
+[00:30:51.220] we can do is what we've done, which is study up on this and, you know, look at
+[00:30:55.420] historical experience, read the literature and think about the factors
+[00:30:59.860] that might matter. And then we'll just have to see have to see how it how
+[00:31:03.940] it goes. Thank you. Courtney Brown from Axios. Two unrelated questions. The
+[00:31:15.960] first is whether or not there was any discussion about QT in the timeline for
+[00:31:21.960] ending QT at this meeting. And then the second question is just, I wonder if
+[00:31:26.800] the A.I. prompted sell off in the stock market this week signaled anything to
+[00:31:31.120] you about the state of financial conditions. So, um, on cute on let's
+[00:31:38.720] talk about runoff. So the most recent data do suggest that reserves are still
+[00:31:43.160] abundant reserves remain roughly as high as they were when runoff began and the
+[00:31:48.200] federal funds rate has been very steady within the target range. We track up a
+[00:31:52.360] bunch of metrics and they do tend to point to reserves being abundant. We do
+[00:31:58.720] intend to reduce the size of our balance sheet to a level that's
+[00:32:01.160] consistent with implementing monetary policy efficiently and effectively in
+[00:32:04.760] our ample reserves regime. We're closely monitoring a range of indicators to
+[00:32:09.320] assess conditions and that should provide signals whether reserves are
+[00:32:13.320] approaching a level that could be judged as quote somewhat above ample. I don't
+[00:32:19.160] have anything to say to you about particular dates. It's just that's the
+[00:32:22.960] process and what we see is is that rates do appear to be abundant. As always
+[00:32:29.280] we stand ready to take appropriate action to support that smooth
+[00:32:31.960] transition of monetary policy including to adjust the details of our approach for
+[00:32:35.920] reducing the size of the balance sheet in light of economic and financial
+[00:32:39.320] developments. On on AI it's a big event in in the stock market and in particular
+[00:32:47.080] parts of the stock market. I mean what really matters for for us is macro
+[00:32:51.120] developments and that means substantial changes in financial conditions that are
+[00:32:55.400] persistent for a period of time. So I wouldn't put that label on on these
+[00:33:00.360] events although of course we're all watching it with interest.
+[00:33:05.570] Simon Urbanovich with The Economist. Thank you. You mentioned in your
+[00:33:11.040] remarks that activity in the housing sector seems to have stabilized. At the
+[00:33:14.920] same time since your first rate cut in September long-term mortgage rates have
+[00:33:19.160] gone up by a full percentage point back above 7%. I'm wondering kind of
+[00:33:23.320] looking forward do you think are you confident that activity will remain
+[00:33:27.920] stable given how elevated mortgage rates are? How does it fit into your
+[00:33:31.360] broader thinking about the economy? So as you know as we've reduced our policy
+[00:33:37.870] rate a hundred basis points longer rates have gone up not because of expectations
+[00:33:44.510] not principally because of expectations about our policy or about inflation it's
+[00:33:48.110] more a term premium story. So and you know it's long rates that matter for for
+[00:33:54.110] housing so I don't think I think these higher rates are gonna they're
+[00:33:59.390] probably hold back housing activities to some extent if they're persistent we'll
+[00:34:03.470] have to see how long they persist. So you know we we are we control an overnight
+[00:34:09.070] rate generally it propagates through the whole family of asset prices including
+[00:34:14.070] interest rates but in this particular case it's all happened at a time when
+[00:34:17.550] for reasons unrelated to our policy longer rates have moved up. Thank you
+[00:34:30.750] chair pal Jennifer Schonberger with Yahoo Finance. He said you want to see
+[00:34:34.310] further progress on inflation given that households appear to be unhappy with the
+[00:34:38.870] elevated level of prices do you believe the committee should wait until
+[00:34:43.150] inflation has fallen back to target to cut rates again? No I wouldn't say that
+[00:34:48.190] we we've never said we need to be all the way at target to reduce rates at
+[00:34:53.510] any time what we're doing is we're looking at the economy and asking
+[00:34:56.270] whether our policy stance is the right one to achieve maximum employment or
+[00:35:00.150] price stability so I think if we would want to see further progress but we think
+[00:35:05.930] our we think our as I mentioned we think that our policy stance is restrictive
+[00:35:10.150] meaningfully restrictive not highly restrictive but meaningfully
+[00:35:13.950] restrictive and so I would think we need to see further progress I wouldn't
+[00:35:17.950] say all the way back down to 2% on a sustainable basis although we'd love
+[00:35:22.430] to see that of course and we will. A separate question for you on tariffs
+[00:35:27.230] curious whether the threat of tariffs and not knowing whether they could stick
+[00:35:31.750] or not creates uncertainty for business here in the United States and could
+[00:35:35.750] cause them to pull back ultimately weighing on growth does the threat of
+[00:35:40.510] tariffs cause you to ponder your growth forecast? You know I want to
+[00:35:46.630] avoid commenting even indirectly on the conduct of tariffs you know it's not
+[00:35:51.510] our job and it's our job to comment on the moves that people make so I
+[00:35:55.390] wouldn't want to criticize anything that's happening or really comment on it
+[00:35:59.950] one way or another praise it for that matter it's just not our job I do think
+[00:36:03.950] that you know we found in 2018 there was a lot of work done on trade policy
+[00:36:09.230] uncertainty trade policy uncertainty if it's large and persistent can start to
+[00:36:14.110] matter for businesses making investment decisions and things like that that's
+[00:36:18.190] not something I'm observing today it's very early days for this but that did
+[00:36:22.750] I think that did matter in in 2018-19 and it's one you know one of many things
+[00:36:29.790] we'll be watching. Thank you Chair Powell. Matt Egan from CNN following up on Courtney's
+[00:36:39.540] question from earlier about the stock market how concerned are you if at all
+[00:36:44.460] about potential asset bubble brewing in financial markets how do relatively high
+[00:36:49.900] market valuations factor into considerations about potentially lowering
+[00:36:54.860] interest rates further is that something that's in the back of your mind so we look
+[00:36:58.900] we look from a financial stability perspective at asset prices generally
+[00:37:04.130] along with things like leverage in the household sector leverage in the
+[00:37:08.490] banking system funding risk for banks and things like that but it's just one
+[00:37:12.650] of the four things asset prices are and yeah I'd say they're elevated by
+[00:37:17.970] many metrics right now a good part of that of course is this thing around tech
+[00:37:21.690] and AI but we look at that but you know we also we look at how resilient the
+[00:37:28.170] households and businesses and the financial sector are to those things so we
+[00:37:32.930] look at that mainly from a financial stability perspective and we think that
+[00:37:36.490] there's a lot of resilience out there banks have high capital and households
+[00:37:41.650] are actually overall not all households but in the aggregate households are in
+[00:37:45.570] pretty good shape financially these days so that's how we think about that I you
+[00:37:50.330] know we also we look at overall financial conditions and you've got you
+[00:37:53.570] can't just take you can't just take equity prices you've got to look at rates
+[00:37:57.750] too and that you know that represents a tightening in conditions with higher
+[00:38:02.670] rates so overall financial conditions are probably still somewhat accommodative
+[00:38:07.750] but it's a mixed bag hi chair pal I'm Richard Escobedo with CBS News one
+[00:38:17.910] question for you this month statement notes that unemployment is stabilized
+[00:38:21.470] at a low rate and that the labor market is solid you walk through some of
+[00:38:24.350] what's driving this but I wonder what risks you see that might challenge your
+[00:38:28.110] assessment well the things we watch we discussed earlier what one is is that
+[00:38:33.980] there's a low hiring rate and so that if if there were to be a spike in
+[00:38:37.780] layoffs if companies were to start to reduce headcount you would see
+[00:38:42.220] unemployment go up pretty quickly because the hiring rate is quite low
+[00:38:45.380] so that's one thing we look at I think it's also it's worth pointing out
+[00:38:49.740] that for lower income households they are they're under significant pressure and
+[00:38:56.980] in the aggregate the numbers are good but we know that people at the lower end
+[00:39:01.060] of the income spectrum are struggling with with costs and really it's it's
+[00:39:05.820] high inflation for the basics of life it's not so much the inflation now
+[00:39:09.700] it's the price level because inflation has raised prices inflation is now
+[00:39:14.540] closer much closer to target but people are really feeling that but you
+[00:39:18.700] know overall this is a good labor market you're at 4.1% unemployment that's
+[00:39:25.460] that's just a really good level and you've been solidly there now four six
+[00:39:29.740] seven months and job creation is pretty close to a level that will hold the
+[00:39:34.860] unemployment right there given given that you know there'll be much lower
+[00:39:40.380] population growth one more question some of the uncertainty around immigration
+[00:39:45.500] policy is in your assessment is that making it harder for businesses and the
+[00:39:50.260] Fed to plan going forward you know we hear anecdotal reports but I don't see
+[00:39:56.920] there's nothing in the data yet on that but you do you hear you hear that kind
+[00:40:00.200] of thing about construction for example and and you know businesses that are
+[00:40:04.520] dependent on immigrant labor are saying that it's it's suddenly gotten harder to
+[00:40:12.040] get people but I again I know you don't see that in the aggregate data
+[00:40:15.520] yet but yes you hear it anecdotally thank you chair Powell Nicholas Jasinski from
+[00:40:24.460] Barron's the uncertainty is certainly a theme today and I'm wondering are there
+[00:40:30.100] any periods from your career or as it relates to markets the economy what's
+[00:40:35.920] going on here in Washington and beyond or from lessons from history that may
+[00:40:39.980] provide some guidance for a central banker operating in uncertain times like
+[00:40:44.570] today I guess I'd say this uncertainty is is with us all the time it's it is
+[00:40:53.910] human nature apparently to underestimate the how fat the tails are in a way that
+[00:40:59.030] you know the possibility we think of things in a normal distribution and in
+[00:41:02.670] the economy it's not a normal distribution the tails are very fat
+[00:41:05.230] meaning things can happen way out of your expectations it's never not that way
+[00:41:08.990] I wouldn't you know if you think about it think about the first few months of
+[00:41:14.150] the pandemic that was uncertainty are we going to be able to reopen the economy
+[00:41:18.670] if so when how much of it how long will it take you know that was uncertainty
+[00:41:23.910] what we have now is a good labor market we have the economy growing at you know
+[00:41:28.590] two to two and a half percent inflation has come down to now that you know the
+[00:41:32.510] headline inflation number was two six and that's what the public experiences we
+[00:41:36.750] look at we look at core because it's a better indicator of future inflation so
+[00:41:40.550] yes the price level went up a lot for inflation and people are feeling that
+[00:41:45.350] and they're not wrong but I yeah so the kind of uncertainty we have is just the
+[00:41:50.510] usual level of uncertainty about the economy but then policies which are you
+[00:41:54.790] know not for us to criticize or praise really those are those are policies
+[00:41:58.550] which people are have been elected to implement they're implementing them with
+[00:42:02.550] the view to to making a better economy and so I don't think I wouldn't call
+[00:42:09.310] this out as a as a as one of those times I wouldn't compare it to the global
+[00:42:13.990] financial crisis or anything like that given that we have actually a very good
+[00:42:17.510] economy right now Evan Reiser with Market News International
+[00:42:26.250] Chair Powell is a March cut still on the table and then additionally are you
+[00:42:30.890] looking to see better than expected data on inflation to cut or are you
+[00:42:35.250] looking for inflation data that roughly aligns with current forecasts so as I
+[00:42:40.050] mentioned the economy strong the labor market solid downside risks to the labor
+[00:42:45.530] market appear to abated and we think this inflation continues on a slow and
+[00:42:49.690] sometimes bumpy path that tells me and the other members of the committee the
+[00:42:54.650] broad sense of the committee actually is that we don't need to be in a hurry to
+[00:42:58.450] adjust our policy stance your second question was whether or not you need to
+[00:43:05.020] see better than expected inflation data or just inflation data that roughly
+[00:43:09.260] aligns with your current forecasts you know it's one of those things we'll know
+[00:43:14.130] it when we see it but more more the the expectation is that we will make
+[00:43:18.290] continued progress and you know that's what we want we will know when we see it
+[00:43:24.600] when it's it's gonna have to be something that isn't just idiosyncratic you're
+[00:43:28.780] gonna want to see you know continued progress with housing services
+[00:43:32.340] inflation you don't want to see inflation behaving in a way that builds
+[00:43:35.660] confidence that we are really making progress that's what it's going to be
+[00:43:39.300] and I mean it is that better than our expectations if we expect to see that
+[00:43:44.300] it's just a question of when I chair pal Scott Horsley friend PR in your five-year
+[00:43:54.330] review you said the the 2% inflation target won't be on the table can you
+[00:43:59.410] talk a little about why is that because you think that's the right target or is
+[00:44:04.050] it because you don't want to move the goal post mid game or what's what's
+[00:44:06.770] what's behind that I think to I think that goal has served us well over a
+[00:44:12.660] long period of time it's also the sort of global standard I think that if if
+[00:44:19.560] Central Bank wanted to look at changing that you wouldn't do it at a time when
+[00:44:24.280] you're not meeting it anyway I would not look at changing it anyway but I
+[00:44:27.880] certainly wouldn't look at it at a time when you're not when you're not
+[00:44:30.880] meeting it I mean there's just no interest at all in changing it if I'm
+[00:44:35.200] being at all unclear we're not we're not gonna change the inflation goal
+[00:44:39.480] anytime soon and and five years ago if I can paraphrase what you all decided it
+[00:44:45.960] was you're gonna not raise interest rates preemptively to to head off
+[00:44:51.280] inflation till you see sort of the whites of the eyes of inflation because
+[00:44:55.480] the solid labor market was so beneficial have the last few years changed your
+[00:45:00.840] thinking about that so what we really said was that we wouldn't we wouldn't
+[00:45:06.280] look at a at a strong labor market and raise rates unless we saw some evidence
+[00:45:11.600] of inflation so the thought was that we'd seen really low levels of inflation
+[00:45:16.240] sorry of unemployment with no sign of inflation so why would you preemptively
+[00:45:22.040] want to want to put people out of work in the absence of any kind of any
+[00:45:27.720] evidence that suggested that that this was not a sustainable level it was a way
+[00:45:32.080] of acknowledging how much humility we have about about the star variables
+[00:45:37.240] especially you star the natural rate of unemployment so that was I thought that
+[00:45:42.520] was an insight we'll discuss that again that'll be one of the many things that we
+[00:45:45.600] discuss but I don't think that insight is wrong we didn't you know we said what
+[00:45:50.480] we said was that you know in at times when inflation persistently undershot
+[00:45:55.360] two percent we we would likely allow inflation to run moderately above two
+[00:46:02.900] percent for some time that's what we said that was turned out not to be
+[00:46:07.180] relevant to what actually happened there was nothing moderate about the
+[00:46:10.340] overshoot it was it was an exogenous event it was the pandemic and it
+[00:46:14.800] happened and you know our framework permitted us to act quite vigorously
+[00:46:20.020] and we did once we decided that that's what we should do the framework had
+[00:46:23.500] really nothing to do with the decision to we looked at the inflation as as
+[00:46:28.020] transitory and right up to the point where the data turned against that and
+[00:46:32.180] when the data turned against that in late 21 we changed our our view and we
+[00:46:36.300] raised rates a lot and here we are at four point one percent unemployment and
+[00:46:39.940] inflation way down but the framework was was more was more irrelevant than
+[00:46:45.620] anything else that part of it that part of it was irrelevant the rest of
+[00:46:50.540] the framework work just fine as as we used it as it supported what we did to
+[00:46:56.020] bring inflation down
+[00:47:00.170] hello Chairman Powell Mark Hamrick with Bankrate as you know in the annual
+[00:47:06.760] report from the financial stability oversight a council among the risks
+[00:47:10.760] outlined is cryptocurrency could you talk about those risks now and regarding
+[00:47:16.920] individuals and households perhaps distinct from the concern about the
+[00:47:20.560] financial system do you worry that speculation in this unregulated asset
+[00:47:25.440] class could hurt their financial well-being or do you think it has a
+[00:47:28.720] place in a household's portfolio you know so our role with Bitcoin really is
+[00:47:35.780] to look at with crypto really is to look at the banks and and you know we we
+[00:47:42.780] think it's you know banks are perfectly able to serve crypto customers as long
+[00:47:48.580] as they understand and can manage the risks and it's safe to safe and sound as
+[00:47:51.940] many of our good number of our banks right that we regulate and supervise do
+[00:47:56.560] that you know the threshold has been a little higher for banks engaging in
+[00:48:01.300] crypto activities and that's because they're so new and you know we don't
+[00:48:05.340] want to make the mistake you're if you if you're making a choice to conduct
+[00:48:08.220] that activity inside a bank which is inside the federal safety net with
+[00:48:13.220] deposit insurance then you want to be pretty sure that that that is a safe
+[00:48:17.820] and sound activity so you know we're not against innovation and we certainly
+[00:48:22.500] don't want to to take actions that would cause banks to you know to terminate
+[00:48:28.820] customers who are perfectly legal just because of excess risk aversion may be
+[00:48:34.500] related to regulation and supervision so
+[00:48:40.650] I you know that's that's kind of a it's not really our bailiwick you want people
+[00:48:48.210] to be knowledgeable about the financial engagements that they have and that's
+[00:48:53.970] why we have you know the securities law that we lost that we have it's why you
+[00:48:57.370] know if you read a mutual fund prospectus or individual stock
+[00:49:00.850] prospectus you want the households to have the chance to understand the risk
+[00:49:04.690] that they're taking and you know I do think it would be helpful if there were
+[00:49:09.130] a greater regulatory apparatus around crypto and I think that's that's
+[00:49:14.090] something Congress was working on quite a lot we've actually spent a lot of time
+[00:49:17.690] you know with members of Congress working together with them on on various
+[00:49:22.130] things and I think that would be a very constructive thing for for Congress to
+[00:49:26.050] do thank you
