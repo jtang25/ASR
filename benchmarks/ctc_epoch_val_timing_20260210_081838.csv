@@ -1,3 +1,0 @@
-model,epoch_time_sec,wall_time_sec,train_batches,val_batches,log_path
-conformer_l_ctc,307,313.112,,,benchmarks/ctc_l_epoch_val_20260210_081838.log
-conformer_s_ctc,145,149.884,,,benchmarks/ctc_s_epoch_val_20260210_081838.log
