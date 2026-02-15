@@ -20,17 +20,27 @@ from pathlib import Path
 
 
 def parse_timestamp(ts_str: str) -> float:
-    """Convert [HH:MM:SS] or HH:MM:SS to seconds."""
-    match = re.match(r"\[?(\d+):(\d+):(\d+)\]?", ts_str)
+    """Convert [HH:MM:SS] or [HH:MM:SS.mmm] or bare variants to seconds."""
+    match = re.match(r"\[?(\d+):(\d+):(\d+(?:\.\d+)?)\]?", ts_str)
     if not match:
         raise ValueError(f"Invalid timestamp: {ts_str}")
-    h, m, s = int(match.group(1)), int(match.group(2)), int(match.group(3))
+    h, m = int(match.group(1)), int(match.group(2))
+    s = float(match.group(3))
     return h * 3600 + m * 60 + s
 
 
 def is_metadata_line(text: str) -> bool:
     """Check if a line is a metadata header or speaker label to be skipped."""
     stripped = text.strip().rstrip(".")
+
+    # Common all-caps phrases that are actual speech, not metadata
+    SPEECH_PHRASES = {
+        "THANK YOU", "GOOD AFTERNOON", "GOOD MORNING", "GOOD EVENING",
+        "YES", "NO", "OKAY", "OK", "SURE", "RIGHT", "EXACTLY",
+        "THANK YOU VERY MUCH", "THANKS", "PLEASE",
+    }
+    if stripped.upper() in SPEECH_PHRASES:
+        return False
 
     # Speaker labels: "CHAIR POWELL", "NICK TIMIRAOS", etc.
     # Pattern: 1-5 words, all uppercase (possibly with punctuation)
@@ -51,38 +61,73 @@ def is_metadata_line(text: str) -> bool:
 def strip_trailing_speaker_label(text: str) -> str:
     """Remove trailing ALL-CAPS speaker labels appended to regular text.
 
+    Only strips when the label follows sentence-ending punctuation or a dash,
+    and requires at least 2 uppercase words to avoid stripping legitimate
+    acronyms like FOMC, GDP, etc.
+
     Handles patterns like:
         "that you're particularly- CHAIR POWELL."  -> "that you're particularly"
         "Daniel. DANIEL AVIS."                     -> "Daniel."
     """
-    # Remove trailing ALL-CAPS names (2+ uppercase words at end of line)
-    cleaned = re.sub(r'[,\-\s]*\b[A-Z]{2,}(?:\s+[A-Z]{2,})*\.?\s*$', '', text)
+    # Require punctuation or dash before the all-caps name (2+ uppercase words)
+    cleaned = re.sub(r'(?<=[.!?\-])\s+[A-Z]{2,}(?:\s+[A-Z]{2,})+\.?\s*$', '', text)
+    # Also handle dash-separated: "particularly- CHAIR POWELL"
+    cleaned = re.sub(r'\s*-\s*[A-Z]{2,}(?:\s+[A-Z]{2,})+\.?\s*$', '', cleaned)
     # Clean up trailing dashes, commas, spaces
     cleaned = re.sub(r'[\-,\s]+$', '', cleaned)
     return cleaned.strip()
 
 
-def parse_transcript(filepath: str, time_offset_seconds: float = 0.0) -> list[tuple[float, str]]:
+def parse_transcript(filepath: str,
+                     time_offset_seconds: float = 0.0,
+                     drift_start_seconds: float | None = None,
+                     drift_end_seconds: float | None = None) -> list[tuple[float, str]]:
     """Parse transcript file into list of (timestamp_seconds, text) tuples.
 
-    `time_offset_seconds` is added to each parsed timestamp and then clamped to >= 0.
-    Use negative values when transcript timestamps are late relative to the audio.
+    Applies optional timestamp correction:
+    - `time_offset_seconds`: constant shift applied to all timestamps.
+    - `drift_start_seconds` / `drift_end_seconds`: linear drift shift from the
+      first to last timestamp (e.g. start=-14.5, end=-16.0).
+    Final timestamps are clamped to >= 0.
     """
-    entries = []
-    with open(filepath, "r") as f:
+    raw_entries = []
+    # utf-8-sig strips BOM when present; some raw transcripts include it on line 1.
+    with open(filepath, "r", encoding="utf-8-sig") as f:
         for line in f:
-            line = line.strip()
+            line = line.lstrip("\ufeff").strip()
             if not line:
                 continue
-            match = re.match(r"(\[?\d+:\d+:\d+\]?)\s*(.*)", line)
+            match = re.match(r"(\[?\d+:\d+:\d+(?:\.\d+)?\]?)\s*(.*)", line)
             if match:
                 ts = parse_timestamp(match.group(1))
-                ts = max(0.0, ts + time_offset_seconds)
                 text = match.group(2).strip()
                 if text and not is_metadata_line(text):
                     text = strip_trailing_speaker_label(text)
                     if text:
-                        entries.append((ts, text))
+                        raw_entries.append((ts, text))
+
+    if not raw_entries:
+        return []
+
+    # Optional linear drift over the transcript timeline.
+    if drift_start_seconds is None and drift_end_seconds is None:
+        start_shift = 0.0
+        end_shift = 0.0
+    else:
+        start_shift = drift_start_seconds if drift_start_seconds is not None else 0.0
+        end_shift = drift_end_seconds if drift_end_seconds is not None else start_shift
+
+    first_ts = raw_entries[0][0]
+    last_ts = raw_entries[-1][0]
+    span = max(1e-6, last_ts - first_ts)
+
+    entries = []
+    for ts, text in raw_entries:
+        progress = (ts - first_ts) / span if span > 0 else 0.0
+        drift_shift = start_shift + progress * (end_shift - start_shift)
+        adj_ts = max(0.0, ts + time_offset_seconds + drift_shift)
+        entries.append((adj_ts, text))
+
     return entries
 
 
@@ -183,7 +228,7 @@ def normalize_text(text: str) -> str:
     Normalize transcript text to LibriSpeech convention:
     - lowercase
     - remove punctuation
-    - expand numbers, percentages, ordinals
+    - expand numbers, percentages, ordinals, dollar amounts
     - normalize whitespace
     """
     # Remove speaker markers like ">>"
@@ -192,24 +237,89 @@ def normalize_text(text: str) -> str:
     # Remove bracketed annotations like [Cough], [Laughter], [Music], etc.
     text = re.sub(r"\[[\w\s]+\]", "", text)
 
-    # Expand common abbreviations
-    text = text.replace("U6", "u six")
-    text = text.replace("SCP", "s c p")
-    text = text.replace("GDP", "g d p")
-    text = text.replace("PCE", "p c e")
-    text = text.replace("AI", "a i")
-    text = text.replace("FOMC", "f o m c")
-    text = text.replace("BIS", "b i s")
-    text = text.replace("AFP", "a f p")
-    text = text.replace("CBS", "c b s")
-    text = text.replace("NBC", "n b c")
-    text = text.replace("ABC", "a b c")
-    text = text.replace("CNN", "c n n")
-    text = text.replace("CNBC", "c n b c")
-    text = text.replace("US", "u s")
+    # Expand common titles/abbreviations (before lowercasing)
+    text = re.sub(r'\bMr\.\s*', 'Mister ', text)
+    text = re.sub(r'\bMrs\.\s*', 'Misses ', text)
+    text = re.sub(r'\bDr\.\s*', 'Doctor ', text)
+    text = re.sub(r'\bSt\.\s*', 'Saint ', text)
+    text = re.sub(r'\bGov\.\s*', 'Governor ', text)
+    text = re.sub(r'\bSen\.\s*', 'Senator ', text)
+    text = re.sub(r'\bRep\.\s*', 'Representative ', text)
+
+    # Expand acronyms with word boundaries to avoid matching inside words
+    ABBREVIATIONS = {
+        "U6": "u six",
+        "SCP": "s c p",
+        "GDP": "g d p",
+        "PCE": "p c e",
+        "AI": "a i",
+        "FOMC": "f o m c",
+        "BIS": "b i s",
+        "AFP": "a f p",
+        "CBS": "c b s",
+        "NBC": "n b c",
+        "ABC": "a b c",
+        "CNN": "c n n",
+        "CNBC": "c n b c",
+        "CPI": "c p i",
+        "QE": "q e",
+        "QT": "q t",
+        "IMF": "i m f",
+        "ECB": "e c b",
+        "Fed": "fed",
+        "US": "u s",
+    }
+    for abbr, expansion in ABBREVIATIONS.items():
+        text = re.sub(rf'\b{re.escape(abbr)}\b', expansion, text)
+
+    # Expand dollar amounts: "$3.5 billion", "$500 million", "$100"
+    def _expand_dollar(m):
+        num_str = m.group(1)
+        scale = m.group(2) or ""
+        if "." in num_str:
+            integer, decimal = num_str.split(".", 1)
+            int_words = number_to_words(int(integer)) if integer else "zero"
+            dec_words = " ".join(ONES[int(d)] if int(d) > 0 else "zero" for d in decimal)
+            num_words = f"{int_words} point {dec_words}"
+        else:
+            num_words = number_to_words(int(num_str))
+        scale = scale.strip().lower()
+        if scale:
+            return f"{num_words} {scale} dollars"
+        return f"{num_words} dollars"
+
+    text = re.sub(r'\$(\d+\.?\d*)\s*(billion|million|trillion|thousand)?', _expand_dollar, text, flags=re.IGNORECASE)
 
     text = expand_percentage(text)
     text = expand_fractions(text)
+
+    # Expand ordinals: 1st, 2nd, 3rd, 4th, 21st, etc.
+    ORDINAL_MAP = {
+        1: "first", 2: "second", 3: "third", 4: "fourth", 5: "fifth",
+        6: "sixth", 7: "seventh", 8: "eighth", 9: "ninth", 10: "tenth",
+        11: "eleventh", 12: "twelfth", 13: "thirteenth", 14: "fourteenth",
+        15: "fifteenth", 16: "sixteenth", 17: "seventeenth", 18: "eighteenth",
+        19: "nineteenth", 20: "twentieth", 30: "thirtieth", 40: "fortieth",
+        50: "fiftieth", 60: "sixtieth", 70: "seventieth", 80: "eightieth",
+        90: "ninetieth",
+    }
+
+    def _expand_ordinal(m):
+        n = int(m.group(1))
+        if n in ORDINAL_MAP:
+            return ORDINAL_MAP[n]
+        if n < 100:
+            tens = (n // 10) * 10
+            ones = n % 10
+            if ones == 0:
+                return ORDINAL_MAP.get(tens, number_to_words(n) + "th")
+            tens_word = TENS[n // 10]
+            ones_ordinal = ORDINAL_MAP.get(ones, number_to_words(ones) + "th")
+            return f"{tens_word} {ones_ordinal}"
+        # For larger ordinals, just append "th" to the cardinal
+        return number_to_words(n) + "th"
+
+    text = re.sub(r'\b(\d+)(?:st|nd|rd|th)\b', _expand_ordinal, text)
 
     # Expand years (4-digit numbers that look like years)
     def _expand_year_match(m):
@@ -275,14 +385,33 @@ def merge_into_sentences(entries: list[tuple[float, str]],
         {"start": float, "end": float, "text": str, "normalized": str}
     """
     # First, split entries at sentence boundaries within fragments.
-    # If a fragment contains "X. Y", split into two sub-entries both with same timestamp.
+    # When a fragment is split, estimate sub-timestamps proportionally by
+    # character count within the interval to the next original timestamp.
     split_entries = []
-    for ts, text in entries:
+    for idx, (ts, text) in enumerate(entries):
+        # Get the next original timestamp to compute interval length
+        if idx + 1 < len(entries):
+            next_original_ts = entries[idx + 1][0]
+        else:
+            next_original_ts = ts + 3.0
+
+        interval = next_original_ts - ts
+
         # Split on sentence-ending punctuation followed by a space and uppercase letter
         # This catches "people. The" but not "U.S." or "2%."
         parts = re.split(r'(?<=[.!?])\s+(?=[A-Z])', text)
-        for j, part in enumerate(parts):
-            split_entries.append((ts, part.strip()))
+
+        if len(parts) == 1:
+            split_entries.append((ts, parts[0].strip()))
+        else:
+            # Distribute the interval proportionally by character length
+            total_chars = sum(len(p) for p in parts)
+            running_offset = 0.0
+            for j, part in enumerate(parts):
+                sub_ts = ts + running_offset
+                char_fraction = len(part) / total_chars if total_chars > 0 else 0
+                running_offset += interval * char_fraction
+                split_entries.append((sub_ts, part.strip()))
 
     sentences = []
     current_text = ""
@@ -368,6 +497,7 @@ def create_librispeech_structure(sentences: list[dict],
     for i, sent in enumerate(sentences):
         utt_id = f"{speaker_id}-{chapter_id}-{i:04d}"
         flac_path = chapter_dir / f"{utt_id}.flac"
+        flac_path_posix = flac_path.as_posix()
 
         # Add buffer around segment
         start = max(0, sent["start"] - buffer_s)
@@ -375,9 +505,9 @@ def create_librispeech_structure(sentences: list[dict],
 
         # ffmpeg command to extract segment
         cmd = (
-            f'ffmpeg -y -i "{audio_path}" '
+            f'ffmpeg -y -loglevel error -i "{audio_path}" '
             f"-ss {start:.3f} -t {duration:.3f} "
-            f'-ar 16000 -ac 1 "{flac_path}"'
+            f'-ar 16000 -ac 1 "{flac_path_posix}"'
         )
         ffmpeg_commands.append(cmd)
 
@@ -427,6 +557,18 @@ def main():
         default=0.0,
         help="Global timestamp shift applied before segmentation (negative shifts earlier)",
     )
+    parser.add_argument(
+        "--drift-start-seconds",
+        type=float,
+        default=None,
+        help="Linear drift shift at transcript start (seconds)",
+    )
+    parser.add_argument(
+        "--drift-end-seconds",
+        type=float,
+        default=None,
+        help="Linear drift shift at transcript end (seconds)",
+    )
     parser.add_argument("--min-duration", type=float, default=2.0, help="Min utterance duration in seconds")
     parser.add_argument("--max-duration", type=float, default=25.0, help="Max utterance duration in seconds")
     parser.add_argument("--buffer-ms", type=int, default=150, help="Audio buffer in ms added before/after each segment")
@@ -434,9 +576,19 @@ def main():
     parser.add_argument("--run-split", action="store_true", help="Also run ffmpeg to split audio")
     args = parser.parse_args()
 
+    if (args.drift_start_seconds is None) ^ (args.drift_end_seconds is None):
+        parser.error("Use both --drift-start-seconds and --drift-end-seconds together.")
+
     print(f"Parsing transcript: {args.transcript}")
     print(f"  Timestamp offset: {args.time_offset_seconds:+.3f}s")
-    entries = parse_transcript(args.transcript, time_offset_seconds=args.time_offset_seconds)
+    if args.drift_start_seconds is not None and args.drift_end_seconds is not None:
+        print(f"  Drift: {args.drift_start_seconds:+.3f}s -> {args.drift_end_seconds:+.3f}s")
+    entries = parse_transcript(
+        args.transcript,
+        time_offset_seconds=args.time_offset_seconds,
+        drift_start_seconds=args.drift_start_seconds,
+        drift_end_seconds=args.drift_end_seconds,
+    )
     print(f"  Found {len(entries)} timestamped lines")
 
     print("Merging into sentences...")
