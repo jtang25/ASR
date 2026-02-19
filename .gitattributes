@@ -1,3 +1,0 @@
-checkpoints/best.pt filter=lfs diff=lfs merge=lfs -text
-checkpoints/last.pt filter=lfs diff=lfs merge=lfs -text
-*.pt filter=lfs diff=lfs merge=lfs -text
