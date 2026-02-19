@@ -46,6 +46,7 @@ Utility scripts:
 - `scripts/eval_ctc_librispeech.py`: evaluate CTC checkpoint on test splits.
 - `scripts/decode_checkpoint_sample.py`: decode one sample utterance from checkpoint.
 - `scripts/transcribe_streaming_rnnt.py`: chunked/streaming-style RNN-T decode with latency/RTF metrics.
+- `scripts/caption_video_rnnt.py`: burn right-aligned live-style captions onto video from streaming RNN-T ASR.
 - `scripts/plot_training_log.py`: plot CSV training logs.
 - `scripts/convert_to_librispeech.py`: convert timestamped transcript + source audio into LibriSpeech-style dataset tree.
 - `scripts/train_conformer_m_ctc_960.sh`: 2-stage CTC -> RNN-T pipeline launcher.
@@ -264,6 +265,27 @@ Outputs include:
 - transcript (`hyp`)
 - decode time, audio time, real-time factor (`rtf`)
 - first-token latency estimate
+
+### Video Caption Burn-In (RNN-T, right-aligned + left-cropped tail)
+
+Given a video, this runs streaming RNN-T ASR and burns captions near the bottom-right.
+
+The rendered text is intentionally cropped from the left:
+- keep a larger trailing context window (`--context-words`)
+- display only the final few words (`--display-words`)
+
+```bash
+python scripts/caption_video_rnnt.py \
+  --checkpoint ./checkpoints_rnnt/best.pt \
+  --video ./media/input.mp4 \
+  --output ./media/input.captioned.mp4 \
+  --context-words 18 \
+  --display-words 6 \
+  --bottom-margin 58 \
+  --right-margin 72
+```
+
+This script requires `ffmpeg` + `ffprobe` on PATH.
 
 ### Decode a single dataset sample from checkpoint
 

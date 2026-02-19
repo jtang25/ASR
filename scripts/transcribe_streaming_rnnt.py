@@ -18,7 +18,7 @@ import math
 import time
 from pathlib import Path
 import sys
-from typing import Optional
+from typing import Callable, Optional
 
 import torch
 
@@ -251,6 +251,7 @@ def streaming_rnnt_greedy_decode(
     right_context: int,
     max_symbols_per_step: int,
     amp_dtype: torch.dtype | None = None,
+    progress_hook: Optional[Callable[[float, list[int], int], None]] = None,
 ) -> tuple[list[int], dict[str, float]]:
     """Chunked encoder windows + stateful predictor decode."""
     if chunk_size_enc <= 0:
@@ -303,6 +304,7 @@ def streaming_rnnt_greedy_decode(
         cur_end = min(total_mel_frames, cur_start + chunk_mel)
         ctx_start = max(0, cur_start - left_mel)
         window_end = min(total_mel_frames, cur_end + right_mel)
+        emitted_this_chunk = 0
 
         chunk = mel[ctx_start:window_end].unsqueeze(0)
         chunk_len = torch.tensor([window_end - ctx_start], dtype=torch.long, device=device)
@@ -330,6 +332,7 @@ def streaming_rnnt_greedy_decode(
                     if token_id == model.blank_idx:
                         break
                     hyp.append(token_id)
+                    emitted_this_chunk += 1
                     if first_token_time_sec is None:
                         # Approximate token time by consumed audio at current chunk edge.
                         first_token_time_sec = float(cur_end) * 0.010
@@ -339,6 +342,8 @@ def streaming_rnnt_greedy_decode(
                     pred_proj = model.joint.project_pred_step(pred_vec.unsqueeze(0))
 
         processed_mel = cur_end
+        if progress_hook is not None:
+            progress_hook(float(cur_end) * 0.010, hyp, emitted_this_chunk)
 
     if device.type == "cuda":
         torch.cuda.synchronize(device)
