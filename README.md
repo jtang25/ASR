@@ -1,27 +1,25 @@
 # ASR
 
-Conformer-based automatic speech recognition project with both CTC and RNN-T training/inference paths.
+Automatic Speech Recognition with Conformer
 
-![FOMC ASR](assets\readme\fomc_captioned.mp4)
-## Visual Overview
+<video controls src="https://raw.githubusercontent.com/jtang25/asr/main/assets/readme/fomc_captioned.mp4"></video>
+## Overview
 
-This project now has story-driven visuals generated from real artifacts in this checkout (`training_log.csv` + Jerome Powell timestamp files + converted `.trans.txt` outputs).
+### 1) Timeline lens: chapter `008` temporal speech dynamics
 
-### 1) Pipeline story: ingest -> prepare -> train -> decode
+![Chapter timeline](assets/readme/04_chapter_008_timeline.png)
 
-![ASR pipeline story](assets/readme/01_pipeline_story.png)
-
-### 2) Optimization behavior: step-level and epoch-level signals
-
-![Training dynamics](assets/readme/02_training_dynamics.png)
-
-### 3) Dataset footprint: chapter density and compression behavior
+### 2) Dataset footprint: chapter density and compression behavior
 
 ![Dataset footprint](assets/readme/03_dataset_footprint.png)
 
-### 4) Timeline lens: chapter `008` temporal speech dynamics
+### 3) Pipeline: ingest -> prepare -> train -> decode
 
-![Chapter timeline](assets/readme/04_chapter_008_timeline.png)
+![ASR pipeline story](assets/readme/01_pipeline_story.png)
+
+### 4) Optimization behavior: step-level and epoch-level signals
+
+![Training dynamics](assets/readme/02_training_dynamics.png)
 
 
 ## What Is In This Repository
