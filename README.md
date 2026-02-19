@@ -2,13 +2,7 @@
 
 Conformer-based automatic speech recognition project with both CTC and RNN-T training/inference paths.
 
-The codebase includes:
-- Full training loop (`train.py`) for CTC or RNN-T.
-- Conformer encoder implementation with RoPE + RMSNorm.
-- Character and SentencePiece tokenization.
-- CTC beam search, optional KenLM fusion (`pyctcdecode`), and RNN-T greedy/beam decoding.
-- Dataset tooling for LibriSpeech and custom timestamped transcripts (Jerome Powell data prep pipeline).
-
+![FOMC ASR](assets\readme\fomc_captioned.mp4)
 ## Visual Overview
 
 This project now has story-driven visuals generated from real artifacts in this checkout (`training_log.csv` + Jerome Powell timestamp files + converted `.trans.txt` outputs).
