@@ -29,6 +29,27 @@ def parse_timestamp(ts_str: str) -> float:
     return h * 3600 + m * 60 + s
 
 
+def get_audio_duration_seconds(audio_path: str) -> float | None:
+    """Return audio duration via ffprobe, or None if unavailable."""
+    try:
+        out = subprocess.check_output(
+            [
+                "ffprobe",
+                "-v",
+                "error",
+                "-show_entries",
+                "format=duration",
+                "-of",
+                "default=noprint_wrappers=1:nokey=1",
+                audio_path,
+            ],
+            text=True,
+        ).strip()
+        return float(out)
+    except Exception:
+        return None
+
+
 def is_metadata_line(text: str) -> bool:
     """Check if a line is a metadata header or speaker label to be skipped."""
     stripped = text.strip().rstrip(".")
@@ -374,7 +395,8 @@ SENT_END = re.compile(r'[.?!](?:\s|$)')
 
 def merge_into_sentences(entries: list[tuple[float, str]],
                          min_duration: float = 2.0,
-                         max_duration: float = 25.0) -> list[dict]:
+                         max_duration: float = 25.0,
+                         final_end_seconds: float | None = None) -> list[dict]:
     """
     Merge timestamped text fragments into sentence-level utterances.
 
@@ -393,7 +415,7 @@ def merge_into_sentences(entries: list[tuple[float, str]],
         if idx + 1 < len(entries):
             next_original_ts = entries[idx + 1][0]
         else:
-            next_original_ts = ts + 3.0
+            next_original_ts = final_end_seconds if final_end_seconds is not None else ts + 3.0
 
         interval = next_original_ts - ts
 
@@ -429,8 +451,8 @@ def merge_into_sentences(entries: list[tuple[float, str]],
         if i + 1 < len(split_entries):
             next_ts = split_entries[i + 1][0]
         else:
-            # Last entry: estimate end as start + 3 seconds
-            next_ts = ts + 3.0
+            # Last entry: use audio end if known, else estimate +3 seconds.
+            next_ts = final_end_seconds if final_end_seconds is not None else ts + 3.0
 
         duration = next_ts - current_start
 
@@ -447,7 +469,10 @@ def merge_into_sentences(entries: list[tuple[float, str]],
 
     # Flush remaining text
     if current_text.strip():
-        end_ts = split_entries[-1][0] + 3.0 if split_entries else 0.0
+        if split_entries:
+            end_ts = final_end_seconds if final_end_seconds is not None else split_entries[-1][0] + 3.0
+        else:
+            end_ts = 0.0
         sentences.append({
             "start": current_start,
             "end": end_ts,
@@ -470,6 +495,41 @@ def filter_sentences(sentences: list[dict],
         if duration >= min_duration and duration <= max_duration and word_count >= min_words:
             filtered.append(s)
     return filtered
+
+
+def segment_from_timestamps(entries: list[tuple[float, str]],
+                            final_end_seconds: float | None = None) -> list[dict]:
+    """Create one segment per timestamp interval [ts_i, ts_{i+1}).
+
+    This mode uses only explicit transcript timestamps for boundaries:
+    - start = current timestamp
+    - end   = next timestamp
+    The final timestamp uses audio end if provided; otherwise it is dropped.
+    """
+    if len(entries) < 2:
+        return []
+
+    segments = []
+    for i in range(len(entries)):
+        start, text = entries[i]
+        if i + 1 < len(entries):
+            end = entries[i + 1][0]
+        elif final_end_seconds is not None:
+            end = final_end_seconds
+        else:
+            continue
+        if end <= start:
+            continue
+        norm = normalize_text(text)
+        if not norm:
+            continue
+        segments.append({
+            "start": start,
+            "end": end,
+            "text": text,
+            "normalized": norm,
+        })
+    return segments
 
 
 # ---- LibriSpeech output ----
@@ -574,6 +634,15 @@ def main():
     parser.add_argument("--buffer-ms", type=int, default=150, help="Audio buffer in ms added before/after each segment")
     parser.add_argument("--preview-only", action="store_true", help="Just preview segments, don't write files")
     parser.add_argument("--run-split", action="store_true", help="Also run ffmpeg to split audio")
+    parser.add_argument(
+        "--segment-mode",
+        choices=["sentence", "timestamp"],
+        default="sentence",
+        help=(
+            "sentence: merge into sentence-level chunks (default); "
+            "timestamp: one segment per consecutive timestamp interval"
+        ),
+    )
     args = parser.parse_args()
 
     if (args.drift_start_seconds is None) ^ (args.drift_end_seconds is None):
@@ -590,13 +659,29 @@ def main():
         drift_end_seconds=args.drift_end_seconds,
     )
     print(f"  Found {len(entries)} timestamped lines")
+    audio_end_seconds = get_audio_duration_seconds(args.audio)
+    if audio_end_seconds is not None:
+        print(f"  Audio duration: {audio_end_seconds:.3f}s")
+    else:
+        print("  Audio duration: unavailable (ffprobe failed); using +3.0s fallback for final segment.")
 
-    print("Merging into sentences...")
-    sentences = merge_into_sentences(entries, min_duration=args.min_duration, max_duration=args.max_duration)
-    print(f"  Merged into {len(sentences)} raw sentences")
-
-    sentences = filter_sentences(sentences, min_duration=args.min_duration, max_duration=args.max_duration)
-    print(f"  After filtering: {len(sentences)} utterances")
+    if args.segment_mode == "timestamp":
+        print("Segmenting strictly by consecutive timestamps...")
+        sentences = segment_from_timestamps(entries, final_end_seconds=audio_end_seconds)
+        print(f"  Timestamp-derived utterances: {len(sentences)}")
+        if len(entries) >= 1 and audio_end_seconds is None:
+            print("  Note: final timestamp entry is dropped (no following end timestamp).")
+    else:
+        print("Merging into sentences...")
+        sentences = merge_into_sentences(
+            entries,
+            min_duration=args.min_duration,
+            max_duration=args.max_duration,
+            final_end_seconds=audio_end_seconds,
+        )
+        print(f"  Merged into {len(sentences)} raw sentences")
+        sentences = filter_sentences(sentences, min_duration=args.min_duration, max_duration=args.max_duration)
+        print(f"  After filtering: {len(sentences)} utterances")
 
     durations = [s["end"] - s["start"] for s in sentences]
     total = sum(durations)

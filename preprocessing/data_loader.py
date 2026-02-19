@@ -161,6 +161,114 @@ class LibriSpeechASR(Dataset):
         return mel, tokens, int(mel.size(0)), int(tokens.size(0))
 
 
+class JeromePowellASR(Dataset):
+    """Direct loader for Jerome Powell chapter folders at <root>/9999/<chapter>."""
+
+    _SPLIT_CHAPTERS = {
+        "train-clean-100": ["001", "002", "003", "004", "005", "006", "007"],
+        "dev-clean": ["008"],
+        "test-clean": ["008"],
+    }
+
+    def __init__(
+        self,
+        root: str,
+        split: str = "train-clean-100",
+        n_mels: int = 80,
+        augment: bool = False,
+        tokenizer: CharTokenizer | SentencePieceTokenizer | None = None,
+    ):
+        speaker_root = os.path.join(root, "9999")
+        if not os.path.isdir(speaker_root):
+            raise FileNotFoundError(f"JeromePowell root missing expected directory: {speaker_root}")
+
+        chapters = self._resolve_chapters(speaker_root, split)
+        if not chapters:
+            raise RuntimeError(
+                f"No chapters selected for split={split!r} under {speaker_root}."
+            )
+
+        entries: list[tuple[str, str, str]] = []
+        for chapter in chapters:
+            chapter_dir = os.path.join(speaker_root, chapter)
+            if not os.path.isdir(chapter_dir):
+                continue
+
+            trans_path = os.path.join(chapter_dir, f"9999-{chapter}.trans.txt")
+            if not os.path.isfile(trans_path):
+                continue
+
+            with open(trans_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    row = line.strip().split(None, 1)
+                    if len(row) != 2:
+                        continue
+                    utt_id, transcript = row
+                    flac_path = os.path.join(chapter_dir, f"{utt_id}.flac")
+                    if not os.path.isfile(flac_path):
+                        continue
+                    entries.append((utt_id, flac_path, transcript))
+
+        if not entries:
+            raise RuntimeError(
+                "No usable JeromePowell samples found. "
+                f"root={root}, split={split}, chapters={chapters}"
+            )
+
+        # Keep deterministic ordering by utterance ID.
+        entries.sort(key=lambda x: x[0])
+        self.entries = entries
+        self.mel_extractor = LogMelSpectrogram(n_mels=n_mels)
+        self.augment = SpecAugment() if augment else None
+        self.tokenizer = tokenizer or CharTokenizer()
+
+    @classmethod
+    def _resolve_chapters(cls, speaker_root: str, split: str) -> list[str]:
+        if split in cls._SPLIT_CHAPTERS:
+            return list(cls._SPLIT_CHAPTERS[split])
+
+        # Allow explicit chapter-like split names: "001", "8", "jp-003", "jp-8".
+        chapter_raw = split
+        if split.startswith("jp-"):
+            chapter_raw = split.split("-", 1)[1]
+        if chapter_raw.isdigit():
+            chapter = f"{int(chapter_raw):03d}"
+            if os.path.isdir(os.path.join(speaker_root, chapter)):
+                return [chapter]
+
+        # Fallback: all available chapter directories.
+        chapters = []
+        for name in sorted(os.listdir(speaker_root)):
+            chapter_dir = os.path.join(speaker_root, name)
+            if os.path.isdir(chapter_dir) and name.isdigit() and len(name) == 3:
+                chapters.append(name)
+        return chapters
+
+    def __len__(self) -> int:
+        return len(self.entries)
+
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, int, int]:
+        _utt_id, flac_path, transcript = self.entries[idx]
+        waveform, sample_rate = torchaudio.load(flac_path)
+
+        if sample_rate != 16000:
+            waveform = torchaudio.functional.resample(waveform, sample_rate, 16000)
+
+        if waveform.size(0) > 1:
+            waveform = waveform.mean(dim=0, keepdim=True)
+
+        mel = self.mel_extractor(waveform.squeeze(0))  # (T, n_mels)
+
+        # Per-feature-bin normalization (zero mean, unit variance over time)
+        mel = (mel - mel.mean(dim=0, keepdim=True)) / (mel.std(dim=0, keepdim=True) + 1e-9)
+
+        if self.augment is not None:
+            mel = self.augment(mel)
+
+        tokens = torch.tensor(self.tokenizer.encode(transcript), dtype=torch.long)
+        return mel, tokens, int(mel.size(0)), int(tokens.size(0))
+
+
 # ---------------------------------------------------------------------------
 # Collate
 # ---------------------------------------------------------------------------
@@ -200,15 +308,28 @@ def get_dataloader(
     return_sampler: bool = False,
     tokenizer: CharTokenizer | SentencePieceTokenizer | None = None,
 ) -> DataLoader | tuple[DataLoader, Optional[DistributedSampler]]:
+    ls_split_root = os.path.join(root, "LibriSpeech", split)
+    ls_nested_split_root = os.path.join(ls_split_root, split)
+    has_librispeech_split = os.path.isdir(ls_split_root) or os.path.isdir(ls_nested_split_root)
+    has_jp_layout = os.path.isdir(os.path.join(root, "9999"))
 
-    dataset = LibriSpeechASR(
-        root=root,
-        split=split,
-        n_mels=n_mels,
-        augment=augment,
-        download=download,
-        tokenizer=tokenizer,
-    )
+    if has_jp_layout and not has_librispeech_split:
+        dataset = JeromePowellASR(
+            root=root,
+            split=split,
+            n_mels=n_mels,
+            augment=augment,
+            tokenizer=tokenizer,
+        )
+    else:
+        dataset = LibriSpeechASR(
+            root=root,
+            split=split,
+            n_mels=n_mels,
+            augment=augment,
+            download=download,
+            tokenizer=tokenizer,
+        )
 
     is_train = "train" in split
     sampler: Optional[DistributedSampler] = None
