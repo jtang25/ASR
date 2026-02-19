@@ -30,7 +30,6 @@ import torch.distributed as dist
 import torch.nn as nn
 from torch.amp import GradScaler, autocast
 from torch.nn.parallel import DistributedDataParallel as DDP
-from torch.utils.data.distributed import DistributedSampler
 
 try:
     import torchaudio
@@ -72,6 +71,20 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--train-splits", nargs="+",
                    default=["train-clean-100", "train-clean-360", "train-other-500"])
     p.add_argument("--val-split", default="dev-other")
+    p.add_argument(
+        "--target-utt-ids-path",
+        default=None,
+        help=(
+            "Optional path to utterance IDs treated as target clips. "
+            "When set on JeromePowell training splits, batches use target/non-target mixing."
+        ),
+    )
+    p.add_argument(
+        "--target-mix-fraction",
+        type=float,
+        default=0.25,
+        help="Target fraction per mixed training batch when --target-utt-ids-path is provided.",
+    )
 
     # Tokenizer
     p.add_argument("--tokenizer", default="sp", choices=["char", "sp"],
@@ -161,6 +174,11 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--dropout", type=float, default=0.1)
     p.add_argument("--variational-noise", type=float, default=0.075,
                    help="Std of Gaussian noise added to weights each step (0 disables).")
+    p.add_argument(
+        "--freeze-encoder",
+        action="store_true",
+        help="Freeze encoder weights and update only decoder/head parameters.",
+    )
 
     # Decoding / eval
     p.add_argument("--beam-size", type=int, default=20)
@@ -192,6 +210,12 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--no-eval-sample-decode", action="store_false", dest="eval_sample_decode")
     p.add_argument("--eval-every", type=int, default=1,
                    help="Run full validation every N epochs (1 = every epoch).")
+    p.add_argument(
+        "--train-log-every",
+        type=int,
+        default=100,
+        help="Print train progress every N batches.",
+    )
     p.add_argument(
         "--early-stop-patience",
         type=int,
@@ -273,6 +297,11 @@ def parse_args() -> argparse.Namespace:
         help="Save last.pt every N epochs (always on final epoch).",
     )
     p.add_argument("--resume-path", default=None)
+    p.add_argument(
+        "--resume-model-only",
+        action="store_true",
+        help="When resuming, load model weights only (skip optimizer/scheduler/scaler/epoch state).",
+    )
     p.add_argument(
         "--init-encoder-from",
         default=None,
@@ -1070,6 +1099,7 @@ def train_one_epoch(
     rnnt_prune_range: int = 5,
     rnnt_simple_loss_scale: float = 0.5,
     rnnt_pruned_loss_scale: float = 1.0,
+    train_log_every: int = 100,
 ):
     model.train()
 
@@ -1251,7 +1281,7 @@ def train_one_epoch(
                 "train_epoch_loss": "", "val_loss": "", "val_wer": "",
                 "lr": lr_now, "elapsed_sec": "", "best_wer": "",
             })
-            if (step + 1) % 100 == 0:
+            if ((step + 1) % train_log_every == 0) or ((step + 1) == loader_len):
                 if loss_type == "rnnt":
                     avg_chunks = rnnt_chunk_count / max(1, num_batches)
                     if rnnt_loss_impl == "k2_pruned":
@@ -1493,6 +1523,10 @@ def main() -> None:
         raise ValueError("--rnnt-pruned-loss-scale must be > 0")
     if args.early_stop_patience < 0:
         raise ValueError("--early-stop-patience must be >= 0")
+    if args.train_log_every < 1:
+        raise ValueError("--train-log-every must be >= 1")
+    if not (0.0 < float(args.target_mix_fraction) < 1.0):
+        raise ValueError("--target-mix-fraction must be between 0 and 1 (exclusive).")
     streaming_enabled = bool(args.streaming_mode or args.streaming_chunk_size > 0)
     if not streaming_enabled:
         args.streaming_chunk_size = 0
@@ -1567,11 +1601,13 @@ def main() -> None:
                     download=dl_flag,
                     distributed=is_distributed, rank=rank, world_size=world_size,
                     return_sampler=True, tokenizer=tokenizer,
+                    target_utt_ids_path=args.target_utt_ids_path,
+                    target_mix_fraction=args.target_mix_fraction,
                 )
                 for split in args.train_splits
             ]
             loaders = [x[0] for x in pairs]
-            samplers = [x[1] for x in pairs if isinstance(x[1], DistributedSampler)]
+            samplers = [x[1] for x in pairs if x[1] is not None and hasattr(x[1], "set_epoch")]
             return loaders, samplers
 
         def _build_val(dl_flag):
@@ -1672,9 +1708,21 @@ def main() -> None:
 
         model_raw = model.module if isinstance(model, DDP) else model
 
+        if args.freeze_encoder:
+            if not hasattr(model_raw, "encoder"):
+                raise ValueError("--freeze-encoder requires model.encoder to exist.")
+            for param in model_raw.encoder.parameters():
+                param.requires_grad = False
+
         if is_main:
             n_params = sum(p.numel() for p in model_raw.parameters() if p.requires_grad)
             print(f"Model parameters: {n_params / 1e6:.1f}M")
+            if args.freeze_encoder:
+                if args.loss_type == "ctc":
+                    train_scope = "ctc_head only (encoder frozen)"
+                else:
+                    train_scope = "predictor/joint only (encoder frozen)"
+                print(f"Trainable scope: {train_scope}")
 
         resume_path = args.resume_path
         if resume_path is None and args.auto_resume:
@@ -1727,7 +1775,7 @@ def main() -> None:
         last_err: Exception | None = None
         for candidate in opt_candidates:
             try:
-                optimizer = opt_cls(model.parameters(), **candidate)
+                optimizer = opt_cls((p for p in model.parameters() if p.requires_grad), **candidate)
                 break
             except (TypeError, RuntimeError, ValueError) as err:
                 last_err = err
@@ -1771,22 +1819,30 @@ def main() -> None:
                 is_main=is_main,
                 label="resume",
             )
-            if "optimizer" in ckpt:
-                optimizer.load_state_dict(ckpt["optimizer"])
-            if args.override_lr_on_resume:
-                for pg in optimizer.param_groups:
-                    pg["lr"] = args.lr
-            if not args.reset_scheduler_on_resume and "scheduler" in ckpt:
-                scheduler.load_state_dict(ckpt["scheduler"])
-            elif args.reset_scheduler_on_resume:
-                scheduler.step_count = 0
-            if "scaler" in ckpt and ckpt["scaler"]:
-                scaler.load_state_dict(ckpt["scaler"])
-            start_epoch = int(ckpt.get("epoch", 0)) + 1
-            best_wer = float(ckpt.get("best_wer", float("inf")))
+            if not args.resume_model_only:
+                if "optimizer" in ckpt:
+                    try:
+                        optimizer.load_state_dict(ckpt["optimizer"])
+                    except ValueError as exc:
+                        if is_main:
+                            print(f"[WARN] Skipping optimizer resume due to mismatch: {exc}")
+                if args.override_lr_on_resume:
+                    for pg in optimizer.param_groups:
+                        pg["lr"] = args.lr
+                if not args.reset_scheduler_on_resume and "scheduler" in ckpt:
+                    scheduler.load_state_dict(ckpt["scheduler"])
+                elif args.reset_scheduler_on_resume:
+                    scheduler.step_count = 0
+                if "scaler" in ckpt and ckpt["scaler"]:
+                    scaler.load_state_dict(ckpt["scaler"])
+                start_epoch = int(ckpt.get("epoch", 0)) + 1
+                best_wer = float(ckpt.get("best_wer", float("inf")))
+            else:
+                start_epoch = 0
+                best_wer = float("inf")
             if is_main:
                 resume_warnings: list[str] = []
-                if not args.reset_scheduler_on_resume:
+                if not args.resume_model_only and not args.reset_scheduler_on_resume:
                     old_warmup = ckpt_cfg.get("warmup_steps", None)
                     if old_warmup is not None and int(old_warmup) != int(args.warmup_steps):
                         resume_warnings.append(
@@ -1804,7 +1860,7 @@ def main() -> None:
                         resume_warnings.append(
                             f"lr_schedule differs (ckpt={old_sched!r} vs cli={args.lr_schedule!r})"
                         )
-                if not args.override_lr_on_resume and args.lr_schedule == "cosine":
+                if not args.resume_model_only and not args.override_lr_on_resume and args.lr_schedule == "cosine":
                     opt_state = ckpt.get("optimizer", {})
                     try:
                         old_lr = float(opt_state.get("param_groups", [{}])[0].get("lr"))
@@ -1822,8 +1878,11 @@ def main() -> None:
                         "  Use --reset-scheduler-on-resume to apply new LR schedule settings, "
                         "and --override-lr-on-resume to force optimizer lr."
                     )
-                print(f"Resumed: epoch {start_epoch+1}/{args.epochs} | "
-                      f"best WER {best_wer:.2%} | step={scheduler.step_count}")
+                if args.resume_model_only:
+                    print("Resumed: model weights only (optimizer/scheduler/scaler reset).")
+                else:
+                    print(f"Resumed: epoch {start_epoch+1}/{args.epochs} | "
+                          f"best WER {best_wer:.2%} | step={scheduler.step_count}")
             if start_epoch >= args.epochs:
                 if is_main:
                     print("Already trained to target epochs.")
@@ -1910,6 +1969,7 @@ def main() -> None:
                 rnnt_prune_range=args.rnnt_prune_range,
                 rnnt_simple_loss_scale=args.rnnt_simple_loss_scale,
                 rnnt_pruned_loss_scale=args.rnnt_pruned_loss_scale,
+                train_log_every=args.train_log_every,
             )
 
             run_eval = ((epoch_idx + 1) % max(1, args.eval_every) == 0) or ((epoch_idx + 1) == args.epochs)

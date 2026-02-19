@@ -6,14 +6,16 @@ SpecAugment follows the paper: F=27, 2 freq masks, 10 time masks with pS=0.05.
 
 from __future__ import annotations
 
+import math
 import os
+import random
 from typing import List, Optional, Tuple
 
 import torch
 import torch.nn as nn
 import torchaudio
 from torch.nn.utils.rnn import pad_sequence
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, Sampler
 from torch.utils.data.distributed import DistributedSampler
 
 from tokenizer import CharTokenizer, SentencePieceTokenizer
@@ -189,6 +191,7 @@ class JeromePowellASR(Dataset):
             )
 
         entries: list[tuple[str, str, str]] = []
+        skipped_decode: list[tuple[str, str]] = []
         for chapter in chapters:
             chapter_dir = os.path.join(speaker_root, chapter)
             if not os.path.isdir(chapter_dir):
@@ -207,6 +210,9 @@ class JeromePowellASR(Dataset):
                     flac_path = os.path.join(chapter_dir, f"{utt_id}.flac")
                     if not os.path.isfile(flac_path):
                         continue
+                    if not self._is_decodable_audio(flac_path):
+                        skipped_decode.append((utt_id, flac_path))
+                        continue
                     entries.append((utt_id, flac_path, transcript))
 
         if not entries:
@@ -215,12 +221,28 @@ class JeromePowellASR(Dataset):
                 f"root={root}, split={split}, chapters={chapters}"
             )
 
+        if skipped_decode:
+            preview = ", ".join(f"{utt}({os.path.basename(path)})" for utt, path in skipped_decode[:8])
+            print(
+                f"[WARN] JeromePowellASR split={split}: skipped {len(skipped_decode)} "
+                f"undecodable audio files. First: {preview}"
+            )
+
         # Keep deterministic ordering by utterance ID.
         entries.sort(key=lambda x: x[0])
         self.entries = entries
         self.mel_extractor = LogMelSpectrogram(n_mels=n_mels)
         self.augment = SpecAugment() if augment else None
         self.tokenizer = tokenizer or CharTokenizer()
+
+    @staticmethod
+    def _is_decodable_audio(path: str) -> bool:
+        """Return True when at least one frame can be decoded."""
+        try:
+            wav, _sr = torchaudio.load(path, frame_offset=0, num_frames=1)
+            return wav.numel() > 0
+        except Exception:
+            return False
 
     @classmethod
     def _resolve_chapters(cls, speaker_root: str, split: str) -> list[str]:
@@ -291,6 +313,66 @@ def collate_fn(
 # DataLoader helper
 # ---------------------------------------------------------------------------
 
+
+class TargetMixBatchSampler(Sampler[List[int]]):
+    """Batch sampler enforcing a target/non-target mix per batch.
+
+    Samples with replacement so each batch can maintain the requested ratio.
+    """
+
+    def __init__(
+        self,
+        target_indices: list[int],
+        non_target_indices: list[int],
+        batch_size: int,
+        target_fraction: float = 0.25,
+        drop_last: bool = True,
+        dataset_len: int | None = None,
+        seed: int = 0,
+    ):
+        if not target_indices:
+            raise ValueError("TargetMixBatchSampler requires at least one target index.")
+        if not non_target_indices:
+            raise ValueError("TargetMixBatchSampler requires at least one non-target index.")
+        if batch_size <= 0:
+            raise ValueError("batch_size must be > 0")
+        if not (0.0 < target_fraction < 1.0):
+            raise ValueError("target_fraction must be between 0 and 1 (exclusive).")
+
+        self.target_indices = list(target_indices)
+        self.non_target_indices = list(non_target_indices)
+        self.batch_size = int(batch_size)
+        self.target_fraction = float(target_fraction)
+        self.drop_last = bool(drop_last)
+        self.seed = int(seed)
+        self.epoch = 0
+
+        self.target_per_batch = max(1, int(round(self.batch_size * self.target_fraction)))
+        self.non_target_per_batch = self.batch_size - self.target_per_batch
+        if self.non_target_per_batch <= 0:
+            self.target_per_batch = self.batch_size - 1
+            self.non_target_per_batch = 1
+
+        n = int(dataset_len) if dataset_len is not None else (len(self.target_indices) + len(self.non_target_indices))
+        self.num_batches = (n // self.batch_size) if self.drop_last else int(math.ceil(n / self.batch_size))
+
+    def set_epoch(self, epoch: int) -> None:
+        self.epoch = int(epoch)
+
+    def __len__(self) -> int:
+        return self.num_batches
+
+    def __iter__(self):
+        rng = random.Random(self.seed + self.epoch)
+        for _ in range(self.num_batches):
+            batch: list[int] = []
+            for _ in range(self.target_per_batch):
+                batch.append(self.target_indices[rng.randrange(len(self.target_indices))])
+            for _ in range(self.non_target_per_batch):
+                batch.append(self.non_target_indices[rng.randrange(len(self.non_target_indices))])
+            rng.shuffle(batch)
+            yield batch
+
 def get_dataloader(
     root: str,
     split: str,
@@ -307,7 +389,9 @@ def get_dataloader(
     world_size: int = 1,
     return_sampler: bool = False,
     tokenizer: CharTokenizer | SentencePieceTokenizer | None = None,
-) -> DataLoader | tuple[DataLoader, Optional[DistributedSampler]]:
+    target_utt_ids_path: str | None = None,
+    target_mix_fraction: float = 0.25,
+) -> DataLoader | tuple[DataLoader, Optional[object]]:
     ls_split_root = os.path.join(root, "LibriSpeech", split)
     ls_nested_split_root = os.path.join(ls_split_root, split)
     has_librispeech_split = os.path.isdir(ls_split_root) or os.path.isdir(ls_nested_split_root)
@@ -332,8 +416,11 @@ def get_dataloader(
         )
 
     is_train = "train" in split
-    sampler: Optional[DistributedSampler] = None
+    sampler: Optional[object] = None
+    batch_sampler: Optional[Sampler[List[int]]] = None
     if distributed:
+        if target_utt_ids_path:
+            raise ValueError("target_utt_ids_path mixing is not supported with distributed training.")
         sampler = DistributedSampler(
             dataset,
             num_replicas=world_size,
@@ -341,19 +428,46 @@ def get_dataloader(
             shuffle=is_train,
             drop_last=is_train,
         )
+    elif is_train and target_utt_ids_path and isinstance(dataset, JeromePowellASR):
+        with open(target_utt_ids_path, "r", encoding="utf-8") as f:
+            target_ids = {line.strip() for line in f if line.strip()}
+        target_indices = [i for i, (utt_id, _, _) in enumerate(dataset.entries) if utt_id in target_ids]
+        non_target_indices = [i for i, (utt_id, _, _) in enumerate(dataset.entries) if utt_id not in target_ids]
+        if target_indices and non_target_indices:
+            batch_sampler = TargetMixBatchSampler(
+                target_indices=target_indices,
+                non_target_indices=non_target_indices,
+                batch_size=batch_size,
+                target_fraction=target_mix_fraction,
+                drop_last=True,
+                dataset_len=len(dataset),
+                seed=0,
+            )
+            sampler = batch_sampler
 
-    loader = DataLoader(
-        dataset,
-        batch_size=batch_size,
-        shuffle=(is_train and sampler is None),
-        sampler=sampler,
-        num_workers=num_workers,
-        collate_fn=collate_fn,
-        pin_memory=pin_memory,
-        drop_last=is_train,
-        persistent_workers=(persistent_workers and num_workers > 0),
-        prefetch_factor=prefetch_factor if num_workers > 0 else None,
-    )
+    if batch_sampler is not None:
+        loader = DataLoader(
+            dataset,
+            batch_sampler=batch_sampler,
+            num_workers=num_workers,
+            collate_fn=collate_fn,
+            pin_memory=pin_memory,
+            persistent_workers=(persistent_workers and num_workers > 0),
+            prefetch_factor=prefetch_factor if num_workers > 0 else None,
+        )
+    else:
+        loader = DataLoader(
+            dataset,
+            batch_size=batch_size,
+            shuffle=(is_train and sampler is None),
+            sampler=sampler,
+            num_workers=num_workers,
+            collate_fn=collate_fn,
+            pin_memory=pin_memory,
+            drop_last=is_train,
+            persistent_workers=(persistent_workers and num_workers > 0),
+            prefetch_factor=prefetch_factor if num_workers > 0 else None,
+        )
 
     if return_sampler:
         return loader, sampler

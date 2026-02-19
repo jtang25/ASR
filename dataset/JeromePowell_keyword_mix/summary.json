@@ -1,0 +1,20 @@
+{
+  "source_root": "dataset/JeromePowell",
+  "output_root": "dataset/JeromePowell_keyword_mix",
+  "target_link_mode": "symlink",
+  "all_utterances": 3504,
+  "target_utterances": 800,
+  "non_target_utterances": 2704,
+  "target_fraction": 0.228310502283105,
+  "missing_target_ids": [],
+  "chapters_with_targets": [
+    "001",
+    "002",
+    "003",
+    "004",
+    "005",
+    "006",
+    "007",
+    "008"
+  ]
+}

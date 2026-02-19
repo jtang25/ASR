@@ -8,8 +8,6 @@ lm/4-gram.lower.bin
 lm/4-gram.arpa.gz
 
 # Keep this repo code-only (large assets live on Hugging Face)
-dataset/
-data/
 lm/
 checkpoints*/
 *.pt
