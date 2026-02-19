@@ -1,6 +1,6 @@
 # ASR
 
-Automatic Speech Recognition with Conformer
+Real-Time Text-to-Speech with Convolutional Transformers
 
 (Play with Audio 📢)
 
