@@ -1,6 +1,6 @@
 # ASR
 
-Real-Time Text-to-Speech with Convolutional Transformers
+Real-Time Speech-to-Text Transcription with Convolutional Transformers
 
 (Play with Audio 📢)
 
